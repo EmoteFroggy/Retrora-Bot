@@ -28,11 +28,44 @@ let editingCommandId = null;
 // Initialize the app
 async function init() {
   try {
-    // Check authentication status
+    // Check URL parameters for authentication status
+    const params = new URLSearchParams(window.location.search);
+    const loggedIn = params.get('loggedIn');
+    const userId = params.get('userId');
+    
+    console.log('URL Params:', { loggedIn, userId });
+    
+    if (loggedIn === 'true' && userId) {
+      // User is logged in via URL params
+      console.log('User logged in via URL params:', userId);
+      
+      // Fetch user data
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/user/${userId}`, {
+          credentials: 'include'
+        });
+        
+        if (response.ok) {
+          currentUser = await response.json();
+          console.log('User data loaded:', currentUser);
+          showDashboard();
+          
+          // Clean up URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+          return;
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      }
+    }
+    
+    // If we reach here, try the standard auth check
     const response = await fetch(`${API_BASE_URL}/auth/status`, {
       credentials: 'include'
     });
+    
     const data = await response.json();
+    console.log('Auth status response:', data);
     
     if (data.isAuthenticated) {
       currentUser = data.user;

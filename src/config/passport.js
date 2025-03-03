@@ -11,19 +11,19 @@ console.log('TWITCH_CALLBACK_URL:', process.env.TWITCH_CALLBACK_URL);
 console.log('TWITCH_CLIENT_ID is set:', !!process.env.TWITCH_CLIENT_ID);
 console.log('TWITCH_CLIENT_SECRET is set:', !!process.env.TWITCH_CLIENT_SECRET);
 
-// Serialize user into the session
+// Serialize user to session
 passport.serializeUser((user, done) => {
+  console.log('Serializing user:', user.id);
   done(null, user.id);
 });
 
-// Deserialize user from the session
-passport.deserializeUser(async (id, done) => {
-  try {
-    const user = await User.findById(id);
-    done(null, user);
-  } catch (err) {
-    done(err, null);
-  }
+// Deserialize user from session
+passport.deserializeUser((id, done) => {
+  console.log('Deserializing user:', id);
+  // Since we're not using a database in this simplified flow,
+  // we can't retrieve the full user. Instead, we'll return a partial user object.
+  // The actual user data will need to be passed via query parameters to the frontend.
+  done(null, { id: id });
 });
 
 // Get Twitch user ID from username
@@ -137,18 +137,7 @@ const twitchStrategyConfig = {
   clientID: process.env.TWITCH_CLIENT_ID,
   clientSecret: process.env.TWITCH_CLIENT_SECRET,
   callbackURL: process.env.TWITCH_CALLBACK_URL,
-  scope: [
-    'moderation:read',         // Read moderation data, including moderators
-    'channel:moderate',        // Perform moderation actions
-    'chat:read',               // Read chat messages
-    'chat:edit'                // Send chat messages (for bot functionality)
-  ],
-  passReqToCallback: true,
-  state: true,                 // Enable CSRF protection
-  pkce: false,                 // Twitch doesn't support PKCE for OAuth 2.0 (as of writing)
-  customHeaders: {             // Add custom headers to improve reliability
-    'Accept': 'application/vnd.twitchtv.v5+json'
-  }
+  scope: ["user:read:email", "chat:read", "chat:edit", "channel:moderate"]
 };
 
 // Log the strategy configuration for debugging
@@ -157,94 +146,90 @@ console.log('Twitch Strategy Configuration:', {
   clientSecret: '********' // Hide the secret
 });
 
-passport.use(new TwitchStrategy(twitchStrategyConfig, async (req, accessToken, refreshToken, profile, done) => {
-  try {
-    console.log('Twitch authentication callback triggered for user:', profile.display_name);
-    
-    // Log the profile structure to debug
-    console.log('Profile structure:', JSON.stringify({
-      id: profile.id,
-      login: profile.login,
-      displayName: profile.display_name,
-      // email removed
-      // Don't log the full profile as it may be large
-      hasJsonData: !!profile._json
-    }));
-    
-    // Check if this user is a moderator of any channel
-    const isModerator = await checkModeratorStatus(accessToken, profile.id, profile);
-
-    console.log('Twitch authentication for:', profile.login, profile.display_name);
-    console.log('Callback URL used:', process.env.TWITCH_CALLBACK_URL);
-    
-    // Get target channel from environment variables (with fallback)
-    let targetChannel = '';
-    if (process.env.CHANNEL_NAME) {
-      targetChannel = process.env.CHANNEL_NAME.replace(/^#/, '').toLowerCase();
-      console.log(`Target channel from environment: ${targetChannel}`);
-    } else {
-      console.warn('No CHANNEL_NAME environment variable set');
+passport.use(new TwitchStrategy({
+  clientID: process.env.TWITCH_CLIENT_ID,
+  clientSecret: process.env.TWITCH_CLIENT_SECRET,
+  callbackURL: process.env.TWITCH_CALLBACK_URL,
+  scope: ["user:read:email", "chat:read", "chat:edit", "channel:moderate"]
+}, (accessToken, refreshToken, profile, done) => {
+  console.log('Passport Twitch Strategy callback received');
+  console.log('Profile ID:', profile.id);
+  console.log('Access Token (first 10 chars):', accessToken.substring(0, 10) + '...');
+  
+  // Check if the user has a profile image
+  let profileImage = null;
+  if (profile.photos && profile.photos.length > 0) {
+    profileImage = profile.photos[0].value;
+  }
+  
+  // Create user object
+  const user = {
+    id: profile.id,
+    displayName: profile.displayName,
+    login: profile.login || profile.username,
+    email: profile.email,
+    profileImage: profileImage,
+    accessToken
+  };
+  
+  // Check if user is a moderator of the target channel
+  const targetChannel = process.env.CHANNEL_NAME.toLowerCase();
+  console.log(`Checking if user is moderator for channel: ${targetChannel}`);
+  
+  // If the user is the channel owner, they're automatically an admin
+  if (user.login.toLowerCase() === targetChannel) {
+    console.log('User is the channel owner - automatically granted admin access');
+    user.isChannelModerator = true;
+    user.isChannelOwner = true;
+    return done(null, user);
+  }
+  
+  // First, get the broadcaster ID for the target channel
+  axios.get(`https://api.twitch.tv/helix/users?login=${targetChannel}`, {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Client-Id': process.env.TWITCH_CLIENT_ID
+    }
+  })
+  .then(response => {
+    if (!response.data.data || response.data.data.length === 0) {
+      console.error(`Could not find broadcaster ID for channel: ${targetChannel}`);
+      user.isChannelModerator = false;
+      return done(null, user);
     }
     
-    // Check if user is broadcaster (channel owner)
-    const isChannelOwner = profile.login.toLowerCase() === targetChannel.toLowerCase();
-    console.log(`User ${profile.display_name} is channel owner: ${isChannelOwner}`);
+    const broadcasterId = response.data.data[0].id;
+    console.log(`Found broadcaster ID for ${targetChannel}: ${broadcasterId}`);
     
-    // Set the moderatedChannels array - either contains the target channel or empty
-    const moderatedChannels = [];
-    if (isModerator || isChannelOwner) {
-      moderatedChannels.push(targetChannel);
-    }
-    
-    console.log(`User ${profile.display_name} moderated channels: ${moderatedChannels.join(', ')}`);
-    
-    // Extract profile image URL safely
-    let profileImageUrl = null;
-    if (profile._json && profile._json.profile_image_url) {
-      profileImageUrl = profile._json.profile_image_url;
-    } else if (profile.photos && profile.photos.length > 0) {
-      profileImageUrl = profile.photos[0].value;
-    }
-    
-    console.log(`Profile image URL: ${profileImageUrl || 'Not available'}`);
-    
-    // Check if user exists
-    let user = await User.findOne({ twitchId: profile.id });
-    
-    if (!user) {
-      console.log(`Creating new user for ${profile.display_name}`);
-      // Create new user
-      user = new User({
-        twitchId: profile.id,
-        displayName: profile.display_name || profile.username || profile.login,
-        profileImage: profileImageUrl,
-        accessToken,
-        refreshToken,
-        moderatedChannels: moderatedChannels,
-        isAdmin: isChannelOwner // Make channel owner an admin
-      });
-    } else {
-      console.log(`Updating existing user for ${profile.display_name}`);
-      // Update existing user
-      user.displayName = profile.display_name || profile.username || profile.login;
-      if (profileImageUrl) {
-        user.profileImage = profileImageUrl;
+    // Now check if the user is a moderator for this channel
+    return axios.get(`https://api.twitch.tv/helix/moderation/moderators?broadcaster_id=${broadcasterId}`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Client-Id': process.env.TWITCH_CLIENT_ID
       }
-      user.accessToken = accessToken;
-      user.refreshToken = refreshToken;
-      user.moderatedChannels = moderatedChannels;
-      user.isAdmin = isChannelOwner || user.isAdmin; // Keep admin status if already admin
-    }
+    });
+  })
+  .then(response => {
+    const moderators = response.data.data;
+    const isModerator = moderators.some(mod => mod.user_id === user.id);
     
-    // Save the user
-    await user.save();
-    console.log(`User saved successfully: ${user.displayName}, admin: ${user.isAdmin}, moderated channels: ${user.moderatedChannels.join(', ')}`);
+    user.isChannelModerator = isModerator;
+    console.log(`User moderation status for ${targetChannel}: ${isModerator ? 'IS MODERATOR' : 'NOT MODERATOR'}`);
     
     return done(null, user);
-  } catch (err) {
-    console.error('Passport authentication error:', err);
-    return done(err, null);
-  }
+  })
+  .catch(error => {
+    console.error('Error checking moderator status:', error.message);
+    if (error.response) {
+      console.error('Status:', error.response.status);
+      console.error('Data:', error.response.data);
+    }
+    
+    // If we can't verify moderator status, we'll still authenticate the user
+    // but mark them as not a moderator
+    user.isChannelModerator = false;
+    return done(null, user);
+  });
 }));
 
 module.exports = passport; 

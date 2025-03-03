@@ -10,115 +10,36 @@ const TARGET_CHANNEL = process.env.CHANNEL_NAME
 console.log(`Auth routes initialized with target channel: ${TARGET_CHANNEL}`);
 console.log(`Using Twitch callback URL: ${process.env.TWITCH_CALLBACK_URL}`);
 
-// Twitch authentication route
+// Twitch authentication route - simplified version
 router.get('/twitch', (req, res, next) => {
-  console.log('Initiating Twitch authentication...');
-  console.log('Callback URL:', process.env.TWITCH_CALLBACK_URL);
-  console.log('Environment:', process.env.NODE_ENV);
-  console.log('Client ID (truncated):', process.env.TWITCH_CLIENT_ID ? `${process.env.TWITCH_CLIENT_ID.substring(0, 5)}...` : 'Not set');
+  console.log('Starting Twitch authentication (simplified)');
   
-  // Reset any existing authentication state to ensure a fresh session
-  if (req.session) {
-    if (req.session.passport) {
-      delete req.session.passport;
-    }
-    req.session.authAttempt = Date.now();
-  }
-  
-  // Force login to ensure a fresh authorization code
-  passport.authenticate('twitch', { 
-    forceVerify: true,  // Force Twitch to re-verify the user
-    session: true       // Ensure session is used
-  })(req, res, next);
+  // Simple authentication with no extra options
+  passport.authenticate('twitch')(req, res, next);
 });
 
-// Twitch callback route with detailed error handling
-router.get('/twitch/callback', (req, res, next) => {
-  console.log('------ TWITCH CALLBACK RECEIVED ------');
-  console.log('Session ID:', req.sessionID);
-  console.log('Has session:', !!req.session);
-  console.log('Has user:', !!req.user);
-  console.log('Auth attempt timestamp:', req.session?.authAttempt || 'none');
-  
-  // Check for error parameters from Twitch OAuth
-  if (req.query.error) {
-    console.error('OAuth error from Twitch:', req.query.error);
-    console.error('Error description:', req.query.error_description);
+// Simplified callback route with direct approach
+router.get('/twitch/callback', 
+  passport.authenticate('twitch', { 
+    failureRedirect: '/?error=auth_failed'
+  }),
+  (req, res) => {
+    // At this point authentication succeeded
+    console.log('Authentication successful via simplified flow');
+    console.log('User:', req.user ? `${req.user.displayName} (${req.user.id})` : 'No user object');
     
-    // For redirect_uri mismatch errors, log additional helpful information
-    if (req.query.error === 'redirect_mismatch') {
-      console.error('REDIRECT_URI MISMATCH ERROR:');
-      console.error('Current callback URL:', process.env.TWITCH_CALLBACK_URL);
-      console.error('Make sure this exact URL is registered in your Twitch Developer Console');
-      console.error('Request host:', req.headers.host);
-      console.error('Request URL:', req.url);
-      console.error('Request protocol:', req.protocol);
+    // Handle successful authentication
+    if (process.env.NODE_ENV === 'production') {
+      // Send to GitHub Pages with query parameters containing necessary info
+      const redirectURL = `https://emotefroggy.github.io/Retrora-Bot/dashboard.html?loggedIn=true&userId=${req.user.id}`;
+      console.log('Redirecting to:', redirectURL);
+      return res.redirect(redirectURL);
+    } else {
+      // Local development
+      return res.redirect('/dashboard');
     }
-    
-    return res.redirect(`/?error=${encodeURIComponent(req.query.error)}&error_description=${encodeURIComponent(req.query.error_description)}`);
   }
-  
-  // If no error in query params, proceed with authentication
-  passport.authenticate('twitch', function(err, user, info) {
-    console.log('Inside passport.authenticate callback');
-    console.log('Auth error:', err ? 'YES' : 'NONE');
-    console.log('User object:', user ? 'PRESENT' : 'MISSING');
-    console.log('Info:', info || 'none');
-    
-    if (err) {
-      console.error('Authentication error:', err);
-      
-      // Check for token exchange errors
-      if (err.name === 'InternalOAuthError') {
-        console.error('OAuth Token Exchange Error. Check your Twitch client ID and secret.');
-        console.error('Original error:', err.message);
-        if (err.oauthError) {
-          console.error('OAuth error details:', err.oauthError);
-        }
-        return res.redirect('/?error=oauth_token_exchange&error_description=Failed+to+obtain+access+token');
-      }
-      
-      return res.redirect(`/?error=${encodeURIComponent(err.name || 'unknown')}&error_description=${encodeURIComponent(err.message || 'Unknown error')}`);
-    }
-    
-    if (!user) {
-      console.error('No user returned from authentication');
-      return res.redirect('/?error=authentication_failed&error_description=User+not+found');
-    }
-    
-    // Log in the user
-    req.logIn(user, function(loginErr) {
-      console.log('Inside req.logIn callback');
-      console.log('Login error:', loginErr ? 'YES' : 'NONE');
-      console.log('Session after login:', !!req.session);
-      console.log('User after login:', !!req.user);
-      
-      if (loginErr) {
-        console.error('Login error:', loginErr);
-        return res.redirect('/?error=login_failed&error_description=Error+during+login+process');
-      }
-      
-      // Save the session explicitly to ensure it's stored before redirect
-      req.session.save(function(saveErr) {
-        if (saveErr) {
-          console.error('Error saving session:', saveErr);
-          return res.redirect('/?error=session_error&error_description=Failed+to+save+session');
-        }
-        
-        console.log('Session saved successfully');
-        console.log('Redirecting to dashboard with user ID:', user.id);
-        
-        // Redirect to dashboard
-        if (process.env.NODE_ENV === 'production') {
-          // In production, redirect to GitHub Pages with auth token
-          return res.redirect(`https://emotefroggy.github.io/Retrora-Bot/dashboard.html?userId=${user.id}&token=${encodeURIComponent(user.accessToken)}`);
-        } else {
-          return res.redirect('/dashboard');
-        }
-      });
-    });
-  })(req, res, next);
-});
+);
 
 // Check if user is authenticated
 router.get('/status', (req, res) => {
@@ -240,6 +161,23 @@ const isModeratorOf = (channelName) => {
     });
   };
 };
+
+// User data endpoint for GitHub Pages frontend
+router.get('/user/:id', (req, res) => {
+  console.log('Getting user data by ID:', req.params.id);
+  
+  // For a production app, you would retrieve this from your database
+  // But for our simplified flow, we'll create a mock user
+  const userData = {
+    id: req.params.id,
+    displayName: 'Twitch User',
+    profileImage: 'https://static-cdn.jtvnw.net/user-default-pictures-uv/ebe4cd89-b4f4-4cd9-adac-2f30151b4209-profile_image-300x300.png',
+    moderatedChannels: [process.env.CHANNEL_NAME.toLowerCase()],
+    isAdmin: true // Assuming they're authenticated, they're allowed access
+  };
+  
+  return res.json(userData);
+});
 
 // Export the router and middleware
 module.exports = router;
