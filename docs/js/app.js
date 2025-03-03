@@ -111,29 +111,45 @@ function showDashboard() {
   homeSection.classList.add('hidden');
   dashboardSection.classList.remove('hidden');
   
+  console.log('Showing dashboard with user:', currentUser);
+  
   // Set auth section with user info
   authSection.innerHTML = `
     <div class="flex items-center">
       <img src="${currentUser.profileImage || 'https://placehold.co/30x30'}" alt="${currentUser.displayName}" class="w-8 h-8 rounded-full mr-2">
-      <span class="mr-4">${currentUser.displayName}</span>
+      <div class="mr-4">
+        <div class="flex items-center">
+          <span>${currentUser.displayName}</span>
+          ${currentUser.isAdmin ? '<span class="ml-2 px-2 py-0.5 bg-purple-600 text-white text-xs rounded">Admin</span>' : ''}
+        </div>
+        <div class="text-xs text-gray-400">${currentUser.login || ''}</div>
+      </div>
       <a href="${API_BASE_URL}/auth/logout" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">
         Logout
       </a>
     </div>
   `;
   
+  // Always update the channel name
+  const channelName = currentUser.moderatedChannels && currentUser.moderatedChannels[0] 
+    ? currentUser.moderatedChannels[0] 
+    : process.env.CHANNEL_NAME || 'your channel';
+  
+  document.querySelector('#dashboard-section h2').textContent = `Commands for ${channelName}`;
+  
   // Check if user has access to any channel
   if (currentUser.moderatedChannels && currentUser.moderatedChannels.length > 0) {
-    // Update header
-    document.querySelector('#dashboard-section h2').textContent = `Commands for ${currentUser.moderatedChannels[0]}`;
+    // Show add command button
+    if (addCommandBtn) {
+      addCommandBtn.style.display = 'block';
+    }
     
     // Load commands for the target channel
     currentChannel = currentUser.moderatedChannels[0];
     loadCommands(currentChannel);
   } else {
     // No moderation privileges
-    document.querySelector('#dashboard-section h2').textContent = 'No Access';
-    commandsTableBody.innerHTML = '<tr><td colspan="6" class="px-4 py-2 text-center">You do not have permission to edit commands for this channel. Only moderators can edit commands.</td></tr>';
+    commandsTableBody.innerHTML = '<tr><td colspan="6" class="px-4 py-2 text-center text-yellow-400">You do not have permission to edit commands for this channel. Only moderators can edit commands.</td></tr>';
     
     // Hide add command button
     if (addCommandBtn) {

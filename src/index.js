@@ -6,6 +6,7 @@ const passport = require('passport');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const path = require('path');
+const axios = require('axios');
 
 // Import routes later
 const authRoutes = require('./routes/auth');
@@ -172,20 +173,75 @@ app.get('/api/user', (req, res) => {
 });
 
 // User data API endpoint (for GitHub Pages frontend)
-app.get('/api/user/:id', (req, res) => {
+app.get('/api/user/:id', async (req, res) => {
   console.log('API - Get user data by ID:', req.params.id);
   
-  // For a production app, you would retrieve this from your database
-  // But for our simplified flow, we'll create a mock user
-  const userData = {
-    id: req.params.id,
-    displayName: 'Twitch User',
-    profileImage: 'https://static-cdn.jtvnw.net/user-default-pictures-uv/ebe4cd89-b4f4-4cd9-adac-2f30151b4209-profile_image-300x300.png',
-    moderatedChannels: [process.env.CHANNEL_NAME.toLowerCase()],
-    isAdmin: true // Assuming they're authenticated, they're allowed access
-  };
-  
-  return res.json(userData);
+  try {
+    const userId = req.params.id;
+    
+    // Get an app access token to make API calls
+    const tokenResponse = await axios.post(
+      'https://id.twitch.tv/oauth2/token',
+      new URLSearchParams({
+        client_id: process.env.TWITCH_CLIENT_ID,
+        client_secret: process.env.TWITCH_CLIENT_SECRET,
+        grant_type: 'client_credentials'
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
+      }
+    );
+    
+    const appAccessToken = tokenResponse.data.access_token;
+    console.log('Obtained app access token for API calls');
+    
+    // Get user information from Twitch API
+    const userResponse = await axios.get(
+      `https://api.twitch.tv/helix/users?id=${userId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${appAccessToken}`,
+          'Client-Id': process.env.TWITCH_CLIENT_ID
+        }
+      }
+    );
+    
+    if (!userResponse.data.data || userResponse.data.data.length === 0) {
+      console.error('No user data found for ID:', userId);
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const twitchUser = userResponse.data.data[0];
+    console.log('Retrieved user data from Twitch:', twitchUser.display_name);
+    
+    // Create user object with Twitch data
+    const userData = {
+      id: userId,
+      displayName: twitchUser.display_name,
+      login: twitchUser.login,
+      profileImage: twitchUser.profile_image_url,
+      moderatedChannels: [process.env.CHANNEL_NAME.toLowerCase()],
+      isAdmin: true // Assuming they're authenticated, they're allowed access
+    };
+    
+    return res.json(userData);
+  } catch (error) {
+    console.error('Error fetching user data from Twitch:', error);
+    
+    // Return a fallback user if we can't get the real data
+    const fallbackUser = {
+      id: req.params.id,
+      displayName: 'Twitch User',
+      profileImage: 'https://static-cdn.jtvnw.net/user-default-pictures-uv/ebe4cd89-b4f4-4cd9-adac-2f30151b4209-profile_image-300x300.png',
+      moderatedChannels: [process.env.CHANNEL_NAME.toLowerCase()],
+      isAdmin: true
+    };
+    
+    console.log('Returning fallback user data');
+    return res.json(fallbackUser);
+  }
 });
 
 // Simple status route
@@ -230,7 +286,8 @@ app.get('*', (req, res) => {
   res.status(404).send('Not found');
 });
 
-// Commands API endpoint (for GitHub Pages frontend)
+// Commands API endpoints (for GitHub Pages frontend)
+// Get commands for a channel
 app.get('/api/commands/:channel', (req, res) => {
   console.log('API - Get commands for channel:', req.params.channel);
   
@@ -264,6 +321,47 @@ app.get('/api/commands/:channel', (req, res) => {
   ];
   
   return res.json(dummyCommands);
+});
+
+// Create a new command
+app.post('/api/commands/:channel', express.json(), (req, res) => {
+  console.log('API - Create command for channel:', req.params.channel);
+  console.log('Command data:', req.body);
+  
+  // In a real app, you would save this to the database
+  // For now, just return success with a mock ID
+  const newCommand = {
+    ...req.body,
+    _id: Date.now().toString(),
+    enabled: true
+  };
+  
+  return res.status(201).json(newCommand);
+});
+
+// Update a command
+app.put('/api/commands/:channel/:commandId', express.json(), (req, res) => {
+  console.log('API - Update command:', req.params.commandId, 'for channel:', req.params.channel);
+  console.log('Updated data:', req.body);
+  
+  // In a real app, you would update this in the database
+  // For now, just return success
+  const updatedCommand = {
+    ...req.body,
+    _id: req.params.commandId,
+    enabled: true
+  };
+  
+  return res.json(updatedCommand);
+});
+
+// Delete a command
+app.delete('/api/commands/:channel/:commandId', (req, res) => {
+  console.log('API - Delete command:', req.params.commandId, 'for channel:', req.params.channel);
+  
+  // In a real app, you would delete this from the database
+  // For now, just return success
+  return res.json({ success: true, message: 'Command deleted' });
 });
 
 // Start the server if not in serverless environment
