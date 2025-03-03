@@ -82,31 +82,43 @@ async function checkModeratorStatus(accessToken, userId, profile) {
     
     console.log(`Got broadcaster ID: ${broadcasterId} for channel: ${normalizedTargetChannel}`);
     
-    // Check if user is a moderator
-    console.log(`Checking moderation status with endpoint: /helix/moderation/moderators?broadcaster_id=${broadcasterId}`);
-    const response = await axios.get(`https://api.twitch.tv/helix/moderation/moderators?broadcaster_id=${broadcasterId}`, {
+    // Check if user is a moderator using the correct Helix API endpoint
+    console.log(`Checking moderation status with endpoint: /helix/moderation/moderators`);
+    const response = await axios.get(`https://api.twitch.tv/helix/moderation/moderators`, {
+      params: {
+        broadcaster_id: broadcasterId,
+        user_id: profile.id  // We can filter directly by the user ID we're checking
+      },
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Client-Id': process.env.TWITCH_CLIENT_ID
       }
     });
     
-    console.log(`Received moderator list response with ${response.data?.data?.length || 0} moderators`);
+    // If the user is in the response data, they are a moderator
+    console.log(`Received moderator response with status: ${response.status}`);
     
     if (response.data && response.data.data) {
-      // Look for the user in the moderator list
-      console.log('Moderator list:', response.data.data.map(mod => `${mod.user_name} (${mod.user_id})`).join(', '));
-      const isModerator = response.data.data.some(mod => mod.user_id === profile.id);
+      // For this endpoint, if we filtered by user_id and got any results, the user is a mod
+      const isModerator = response.data.data.length > 0;
       console.log(`User ${profile.display_name} moderator status: ${isModerator}`);
+      
+      if (isModerator) {
+        console.log(`User ${profile.display_name} is confirmed as a moderator`);
+      } else {
+        console.log(`User ${profile.display_name} is not a moderator of channel ${normalizedTargetChannel}`);
+      }
+      
       return isModerator;
     }
     
-    console.log('No moderators found in response');
+    console.log('No moderator data found in response');
     return false;
   } catch (error) {
     console.error('Error checking moderator status:', error.message);
     if (error.response) {
-      console.error('Error response:', error.response.data);
+      console.error('Error response code:', error.response.status);
+      console.error('Error response data:', error.response.data);
     }
     
     // If we're the channel owner, grant permission despite API errors
@@ -123,7 +135,12 @@ const twitchStrategyConfig = {
   clientID: process.env.TWITCH_CLIENT_ID,
   clientSecret: process.env.TWITCH_CLIENT_SECRET,
   callbackURL: process.env.TWITCH_CALLBACK_URL,
-  scope: ['user:read:email', 'moderator:read:chatters', 'channel:read:moderators'],
+  scope: [         // Read user email
+    'moderation:read',         // Read moderation data, including moderators
+    'channel:moderate',        // Perform moderation actions
+    'chat:read',               // Read chat messages
+    'chat:edit'                // Send chat messages (for bot functionality)
+  ],
   passReqToCallback: true
 };
 
