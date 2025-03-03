@@ -1,0 +1,84 @@
+/* Twitch Bot Dashboard Styles */
+
+/* Base Styles */
+body {
+  background-color: #0e0e10;
+  color: #efeff1;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Status Indicators */
+.bg-green-500 {
+  background-color: #1db954;
+}
+
+.bg-red-500 {
+  background-color: #f43547;
+}
+
+/* Table Styles */
+.commands-table:nth-child(odd) {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.commands-table:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Button Styles */
+.btn-twitch {
+  background-color: #9146ff;
+}
+
+.btn-twitch:hover {
+  background-color: #772ce8;
+}
+
+/* Modal Styles */
+#command-modal {
+  backdrop-filter: blur(4px);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  table {
+    font-size: 0.875rem;
+  }
+  
+  th, td {
+    padding: 0.5rem 0.25rem !important;
+  }
+  
+  .actions-cell {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .actions-cell button {
+    margin: 0.25rem 0;
+  }
+}
+
+/* Loading Indicator */
+.loading {
+  display: inline-block;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 0.25rem solid rgba(255, 255, 255, 0.2);
+  border-top-color: #9146ff;
+  border-radius: 50%;
+  animation: spin 1s infinite linear;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+} 
