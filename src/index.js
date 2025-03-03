@@ -7,7 +7,7 @@ const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const path = require('path');
 
-// Import routes
+// Import routes later
 const authRoutes = require('./routes/auth');
 const commandRoutes = require('./routes/commands');
 
@@ -18,35 +18,21 @@ const TwitchBot = require('./bot/bot');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Determine environment
-const isProduction = process.env.NODE_ENV === 'production';
-const FRONTEND_URL = process.env.FRONTEND_URL || 'https://emotefroggy.github.io/Retrora-Bot';
-const BACKEND_URL = process.env.BACKEND_URL || 'https://retrora-bot.vercel.app';
-
-console.log(`Environment: ${isProduction ? 'Production' : 'Development'}`);
-console.log(`Frontend URL: ${FRONTEND_URL}`);
-console.log(`Backend URL: ${BACKEND_URL}`);
-
 // Connect to MongoDB
 if (process.env.MONGODB_URI) {
   mongoose.connect(process.env.MONGODB_URI)
     .then(() => console.log('Connected to MongoDB'))
     .catch(err => console.error('MongoDB connection error:', err));
-} else {
-  console.warn('No MongoDB URI provided, database functionality will not work');
 }
 
 // Passport configuration
 require('./config/passport');
 
-// CORS configuration for production
+// Middleware
 app.use(cors({
-  origin: [FRONTEND_URL, 'https://emotefroggy.github.io', 'https://emotefroggy.github.io/Retrora-Bot'],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  origin: process.env.CLIENT_URL || '*',
+  credentials: true
 }));
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -54,18 +40,13 @@ app.use(express.urlencoded({ extended: true }));
 app.use(session({
   secret: process.env.SESSION_SECRET || 'twitch-bot-secret',
   resave: false,
-  saveUninitialized: true,
+  saveUninitialized: false,
   store: process.env.MONGODB_URI 
-    ? MongoStore.create({ 
-        mongoUrl: process.env.MONGODB_URI,
-        ttl: 24 * 60 * 60 // 1 day
-      }) 
+    ? MongoStore.create({ mongoUrl: process.env.MONGODB_URI }) 
     : null,
   cookie: {
     maxAge: 24 * 60 * 60 * 1000, // 1 day
-    secure: isProduction,
-    sameSite: 'none',
-    httpOnly: true
+    secure: process.env.NODE_ENV === 'production'
   }
 }));
 
@@ -82,16 +63,8 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 // Simple status route
 app.get('/api/status', (req, res) => {
-  res.json({ 
-    status: 'online', 
-    user: req.user || null,
-    environment: isProduction ? 'production' : 'development',
-    serverTime: new Date().toISOString()
-  });
+  res.json({ status: 'online', user: req.user || null });
 });
-
-// CORS preflight for complex requests
-app.options('*', cors());
 
 // Catch-all route for SPA
 app.get('*', (req, res) => {
@@ -99,7 +72,7 @@ app.get('*', (req, res) => {
 });
 
 // Start the server if not in serverless environment
-if (!isProduction) {
+if (process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });

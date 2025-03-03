@@ -1,8 +1,5 @@
 // Twitch Bot Dashboard Frontend
 
-// API base URL - change when deploying
-const API_BASE_URL = 'https://retrora-bot.vercel.app';
-
 // DOM Elements
 const authSection = document.getElementById('auth-section');
 const homeSection = document.getElementById('home-section');
@@ -29,7 +26,7 @@ let editingCommandId = null;
 async function init() {
   try {
     // Check authentication status
-    const response = await fetch(`${API_BASE_URL}/auth/status`, { credentials: 'include' });
+    const response = await fetch('/auth/status');
     const data = await response.json();
     
     if (data.isAuthenticated) {
@@ -49,7 +46,7 @@ function showHome() {
   homeSection.classList.remove('hidden');
   dashboardSection.classList.add('hidden');
   authSection.innerHTML = `
-    <a href="${API_BASE_URL}/auth/twitch" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded btn-twitch">
+    <a href="/auth/twitch" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded btn-twitch">
       Login
     </a>
   `;
@@ -62,7 +59,7 @@ function showDashboard() {
   authSection.innerHTML = `
     <div class="flex items-center">
       <span class="mr-4">${currentUser.displayName}</span>
-      <a href="${API_BASE_URL}/auth/logout" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">
+      <a href="/auth/logout" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">
         Logout
       </a>
     </div>
@@ -98,7 +95,7 @@ function showDashboard() {
 // Load commands for a channel
 async function loadCommands(channel) {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/commands/${channel}`, { credentials: 'include' });
+    const response = await fetch(`/api/commands/${channel}`);
     
     if (response.status === 403) {
       commandsTableBody.innerHTML = '<tr><td colspan="6" class="px-4 py-2 text-center">You are not authorized to view commands for this channel</td></tr>';
@@ -210,18 +207,16 @@ async function saveCommand(event) {
     
     if (editingCommandId) {
       // Update existing command
-      response = await fetch(`${API_BASE_URL}/api/commands/${currentChannel}/${editingCommandId}`, {
+      response = await fetch(`/api/commands/${currentChannel}/${editingCommandId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(commandData)
       });
     } else {
       // Create new command
-      response = await fetch(`${API_BASE_URL}/api/commands/${currentChannel}`, {
+      response = await fetch(`/api/commands/${currentChannel}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(commandData)
       });
     }
@@ -244,9 +239,8 @@ async function deleteCommand(commandId) {
   if (!confirm('Are you sure you want to delete this command?')) return;
   
   try {
-    const response = await fetch(`${API_BASE_URL}/api/commands/${currentChannel}/${commandId}`, {
-      method: 'DELETE',
-      credentials: 'include'
+    const response = await fetch(`/api/commands/${currentChannel}/${commandId}`, {
+      method: 'DELETE'
     });
     
     if (response.ok) {

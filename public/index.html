@@ -3,16 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Retrora Bot Dashboard</title>
+  <title>Twitch Bot Dashboard</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://retrora-bot.vercel.app https://cdn.jsdelivr.net; connect-src https://retrora-bot.vercel.app; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' https://static-cdn.jtvnw.net data:;">
-  <base href="/Retrora-Bot/">
+  <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body class="bg-gray-900 text-white min-h-screen">
   <div class="container mx-auto px-4 py-8">
     <header class="flex justify-between items-center mb-8">
-      <h1 class="text-3xl font-bold text-purple-500">Retrora Bot Dashboard</h1>
+      <h1 class="text-3xl font-bold text-purple-500">Twitch Bot Dashboard</h1>
       <div id="auth-section">
         <!-- Auth buttons will be inserted here -->
       </div>
@@ -21,12 +19,8 @@
     <main>
       <div id="home-section" class="text-center py-16">
         <h2 class="text-4xl font-bold mb-6">Manage Your Twitch Bot Commands</h2>
-        <p class="text-xl mb-8 text-gray-300">Create, edit, and manage custom commands for the Retrora Bot.</p>
-        <div class="mb-8">
-          <p class="text-lg text-gray-400 mb-4">This dashboard connects to the Retrora Bot running on the EmoteFroggy Twitch channel.</p>
-          <p class="text-md text-gray-500">Only moderators of the channel can access the command dashboard.</p>
-        </div>
-        <a href="https://retrora-bot.vercel.app/auth/twitch" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg text-lg transition duration-300">
+        <p class="text-xl mb-8 text-gray-300">Create, edit, and manage custom commands for your Twitch channel.</p>
+        <a href="/auth/twitch" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg text-lg transition duration-300">
           Login with Twitch
         </a>
       </div>
@@ -107,10 +101,10 @@
     </main>
 
     <footer class="mt-16 text-center text-gray-500">
-      <p>&copy; 2023 Retrora Bot Dashboard. All rights reserved.</p>
+      <p>&copy; 2023 Twitch Bot Dashboard. All rights reserved.</p>
     </footer>
   </div>
 
-  <script src="js/app.js"></script>
+  <script src="/js/app.js"></script>
 </body>
 </html> 

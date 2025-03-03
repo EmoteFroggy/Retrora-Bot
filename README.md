@@ -1,88 +1,94 @@
-# Retrora Bot Dashboard
+# Twitch Bot Dashboard
 
-A Twitch bot dashboard for the Retrora Bot, allowing moderators to manage commands for the EmoteFroggy channel.
-
-## Live Links
-
-- **Frontend (GitHub Pages)**: [https://emotefroggy.github.io/Retrora-Bot](https://emotefroggy.github.io/Retrora-Bot)
-- **Backend (Vercel)**: [https://retrora-bot.vercel.app](https://retrora-bot.vercel.app)
+A Twitch bot with a web dashboard that allows moderators to manage custom commands for their channel.
 
 ## Features
 
-- Authentication with Twitch
-- Command management (add, edit, delete)
-- Role-based access (moderators only)
-- Real-time command updates
+- **Twitch Authentication**: Users log in with their Twitch account
+- **Moderator Access Control**: Only channel moderators can access the dashboard
+- **Command Management**: Create, edit, delete, and toggle commands
+- **User Level Permissions**: Set who can use each command (everyone, subscribers, VIPs, moderators, broadcaster)
+- **Cooldown System**: Prevent command spam with customizable cooldowns
+- **Responsive UI**: Works on desktop and mobile devices
 
-## Deployment Instructions
+## Tech Stack
 
-### Backend Deployment (Vercel)
+- **Backend**: Node.js, Express.js
+- **Frontend**: HTML, CSS, JavaScript with Tailwind CSS
+- **Database**: MongoDB
+- **Authentication**: Passport.js with Twitch OAuth
+- **Bot**: tmi.js (Twitch Messaging Interface)
+- **Deployment**: Vercel
 
-1. Create a Vercel account if you don't have one: [https://vercel.com](https://vercel.com)
-2. Install the Vercel CLI: `npm install -g vercel`
-3. Log in to your Vercel account: `vercel login`
-4. From the project directory, deploy the project: `vercel`
-5. Set up the environment variables in the Vercel dashboard:
-   - Go to your project settings
-   - Add the environment variables from `.env.example`
-   - Make sure to update all URLs to production URLs
+## Setup Instructions
 
-### Frontend Deployment (GitHub Pages)
+### Prerequisites
 
-1. Create a new GitHub repository: `Retrora-Bot`
-2. Copy the files from the `github-pages` directory to the repository root
-3. Push to GitHub
-4. Go to repository settings → Pages
-5. Set the source to the main branch and save
-6. Your site will be published at `https://yourusername.github.io/Retrora-Bot`
+- Node.js (v18 or higher)
+- MongoDB database (local or Atlas)
+- Twitch Developer Application
 
-## Environment Variables
+### Step 1: Clone the repository
 
-The following environment variables need to be set in your Vercel deployment:
-
-```
-# Production URLs
-FRONTEND_URL=https://emotefroggy.github.io/Retrora-Bot
-BACKEND_URL=https://retrora-bot.vercel.app
-
-# Twitch API
-TWITCH_CLIENT_ID=your_client_id
-TWITCH_CLIENT_SECRET=your_client_secret
-TWITCH_CALLBACK_URL=https://retrora-bot.vercel.app/auth/twitch/callback
-
-# Bot Configuration
-BOT_USERNAME=your_bot_username
-BOT_TOKEN=oauth:your_bot_token
-CHANNEL_NAME=EmoteFroggy
-
-# MongoDB
-MONGODB_URI=your_mongodb_connection_string
-
-# Session
-SESSION_SECRET=your_session_secret
-NODE_ENV=production
+```bash
+git clone https://github.com/yourusername/twitch-bot-dashboard.git
+cd twitch-bot-dashboard
 ```
 
-## Local Development
+### Step 2: Install dependencies
 
-1. Clone the repository
-2. Create a `.env` file based on `.env.example`
-3. Install dependencies: `npm install`
-4. Start the development server: `npm run dev`
+```bash
+npm install
+```
 
-## Authentication Setup
+### Step 3: Set up environment variables
 
-1. Create a Twitch application at [dev.twitch.tv](https://dev.twitch.tv/console/apps)
-2. Set the OAuth Redirect URL to `http://localhost:3000/auth/twitch/callback` for local development and `https://retrora-bot.vercel.app/auth/twitch/callback` for production
-3. Get your Client ID and Client Secret
-4. Update your `.env` file with these credentials
+Copy the example environment file and fill in your details:
 
-## Bot Token Generation
+```bash
+cp .env.example .env
+```
 
-1. Visit [twitchapps.com/tmi](https://twitchapps.com/tmi/) and authenticate with the bot account
-2. Copy the generated OAuth token (it should start with "oauth:")
-3. Add it to your `.env` file as `BOT_TOKEN`
+Edit the `.env` file with your:
+- MongoDB connection string
+- Twitch application credentials
+- Bot credentials
+- Session secret
+
+### Step 4: Create a Twitch Application
+
+1. Go to [Twitch Developer Console](https://dev.twitch.tv/console/apps)
+2. Create a new application
+3. Set the OAuth Redirect URL to `http://localhost:3000/auth/twitch/callback` (for development)
+4. Copy the Client ID and Client Secret to your `.env` file
+
+### Step 5: Get a Twitch Bot Token
+
+1. Visit [Twitch Token Generator](https://twitchapps.com/tmi/)
+2. Connect with your bot account
+3. Copy the OAuth token to your `.env` file
+
+### Step 6: Start the development server
+
+```bash
+npm run dev
+```
+
+The application will be available at `http://localhost:3000`
+
+## Deployment to Vercel
+
+This project is configured for easy deployment to Vercel:
+
+1. Push your code to a GitHub repository
+2. Connect the repository to Vercel
+3. Set up the environment variables in the Vercel dashboard
+4. Deploy!
 
 ## License
 
-This project is licensed under the MIT License. 
+MIT
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request. 
