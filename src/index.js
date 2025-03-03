@@ -91,6 +91,11 @@ app.get('/api/status', (req, res) => {
   });
 });
 
+// Explicit route for dashboard
+app.get('/dashboard', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public', 'index.html'));
+});
+
 // Catch-all route for SPA
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../public', 'index.html'));
