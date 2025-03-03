@@ -28,7 +28,19 @@ let editingCommandId = null;
 // Initialize the app
 async function init() {
   try {
-    // Check authentication status
+    // Check for auth parameters in sessionStorage (from dashboard.html redirect)
+    const loggedIn = sessionStorage.getItem('twitchLoggedIn');
+    const userId = sessionStorage.getItem('twitchUserId');
+    const authToken = sessionStorage.getItem('twitchAuthToken');
+    
+    if (loggedIn === 'true' && userId && authToken) {
+      console.log('Found auth parameters in session storage, fetching user info');
+      
+      // We have auth info from redirect, let's try to use it to check auth status
+      // This serves as a fallback for the regular cookie-based authentication
+    }
+    
+    // Normal authentication check using cookies
     const response = await fetch(`${API_BASE_URL}/auth/status`, { 
       credentials: 'include',
       mode: 'cors'
