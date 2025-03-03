@@ -34,6 +34,12 @@ router.get('/twitch', (req, res, next) => {
 
 // Twitch callback route with detailed error handling
 router.get('/twitch/callback', (req, res, next) => {
+  console.log('------ TWITCH CALLBACK RECEIVED ------');
+  console.log('Session ID:', req.sessionID);
+  console.log('Has session:', !!req.session);
+  console.log('Has user:', !!req.user);
+  console.log('Auth attempt timestamp:', req.session?.authAttempt || 'none');
+  
   // Check for error parameters from Twitch OAuth
   if (req.query.error) {
     console.error('OAuth error from Twitch:', req.query.error);
@@ -54,6 +60,11 @@ router.get('/twitch/callback', (req, res, next) => {
   
   // If no error in query params, proceed with authentication
   passport.authenticate('twitch', function(err, user, info) {
+    console.log('Inside passport.authenticate callback');
+    console.log('Auth error:', err ? 'YES' : 'NONE');
+    console.log('User object:', user ? 'PRESENT' : 'MISSING');
+    console.log('Info:', info || 'none');
+    
     if (err) {
       console.error('Authentication error:', err);
       
@@ -75,12 +86,36 @@ router.get('/twitch/callback', (req, res, next) => {
       return res.redirect('/?error=authentication_failed&error_description=User+not+found');
     }
     
+    // Log in the user
     req.logIn(user, function(loginErr) {
+      console.log('Inside req.logIn callback');
+      console.log('Login error:', loginErr ? 'YES' : 'NONE');
+      console.log('Session after login:', !!req.session);
+      console.log('User after login:', !!req.user);
+      
       if (loginErr) {
         console.error('Login error:', loginErr);
         return res.redirect('/?error=login_failed&error_description=Error+during+login+process');
       }
-      return res.redirect('/dashboard');
+      
+      // Save the session explicitly to ensure it's stored before redirect
+      req.session.save(function(saveErr) {
+        if (saveErr) {
+          console.error('Error saving session:', saveErr);
+          return res.redirect('/?error=session_error&error_description=Failed+to+save+session');
+        }
+        
+        console.log('Session saved successfully');
+        console.log('Redirecting to dashboard with user ID:', user.id);
+        
+        // Redirect to dashboard
+        if (process.env.NODE_ENV === 'production') {
+          // In production, redirect to GitHub Pages with auth token
+          return res.redirect(`https://emotefroggy.github.io/Retrora-Bot/dashboard.html?userId=${user.id}&token=${encodeURIComponent(user.accessToken)}`);
+        } else {
+          return res.redirect('/dashboard');
+        }
+      });
     });
   })(req, res, next);
 });

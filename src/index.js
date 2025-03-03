@@ -44,6 +44,10 @@ app.use((req, res, next) => {
   if (req.query && Object.keys(req.query).length > 0) {
     console.log('Query params:', req.query);
   }
+  
+  // Access-Control-Allow-Credentials must be set before any CORS response
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
   next();
 });
 
@@ -66,7 +70,9 @@ app.use(cors({
     console.log(`CORS allowed for origin: ${origin}`);
     return callback(null, true);
   },
-  credentials: true
+  credentials: true,          // Allow cookies to be sent with requests
+  exposedHeaders: ['Set-Cookie'],  // Expose the Set-Cookie header
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Cookie']
 }));
 
 app.use(express.json());
@@ -134,6 +140,36 @@ app.use('/api/commands', commandRoutes);
 if (process.env.NODE_ENV !== 'production') {
   app.use(express.static(path.join(__dirname, '../public')));
 }
+
+// API endpoint to check authentication status
+app.get('/api/user', (req, res) => {
+  // Add appropriate CORS headers for credential sharing
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+  if (req.isAuthenticated() && req.user) {
+    // User is authenticated, return user data
+    const userData = {
+      authenticated: true,
+      user: {
+        id: req.user.id,
+        displayName: req.user.displayName,
+        twitchId: req.user.twitchId,
+        moderatedChannels: req.user.moderatedChannels || [],
+        isAdmin: req.user.isAdmin
+      }
+    };
+    
+    console.log('Returning authenticated user data:', userData);
+    return res.json(userData);
+  } else {
+    // User is not authenticated
+    console.log('User not authenticated, session:', !!req.session);
+    return res.json({ 
+      authenticated: false,
+      message: 'Not authenticated'
+    });
+  }
+});
 
 // Simple status route
 app.get('/api/status', (req, res) => {
