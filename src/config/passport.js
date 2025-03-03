@@ -117,11 +117,13 @@ async function checkModeratorStatus(accessToken, userId, profile) {
 passport.use(new TwitchStrategy({
   clientID: process.env.TWITCH_CLIENT_ID,
   clientSecret: process.env.TWITCH_CLIENT_SECRET,
-  callbackURL: process.env.TWITCH_CALLBACK_URL || 'http://localhost:3000/auth/twitch/callback',
+  callbackURL: process.env.TWITCH_CALLBACK_URL,
   scope: 'user:read:email channel:moderate chat:edit chat:read moderation:read',
-}, async (accessToken, refreshToken, profile, done) => {
+  passReqToCallback: true
+}, async (req, accessToken, refreshToken, profile, done) => {
   try {
     console.log('Twitch authentication for:', profile.login, profile.display_name);
+    console.log('Callback URL used:', process.env.TWITCH_CALLBACK_URL);
     
     // Get target channel from environment variables (with fallback)
     let targetChannel = '';

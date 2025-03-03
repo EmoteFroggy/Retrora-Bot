@@ -37,6 +37,14 @@ const allowedOrigins = [
 ];
 
 // Middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  if (req.query && Object.keys(req.query).length > 0) {
+    console.log('Query params:', req.query);
+  }
+  next();
+});
+
 app.use(cors({
   origin: function(origin, callback) {
     // Allow requests with no origin (like mobile apps, curl, etc)

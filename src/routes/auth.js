@@ -8,16 +8,34 @@ const TARGET_CHANNEL = process.env.CHANNEL_NAME
   : null;
 
 console.log(`Auth routes initialized with target channel: ${TARGET_CHANNEL}`);
+console.log(`Using Twitch callback URL: ${process.env.TWITCH_CALLBACK_URL}`);
 
 // Twitch authentication route
 router.get('/twitch', passport.authenticate('twitch'));
 
-// Twitch callback route
+// Twitch callback route with error handling
 router.get('/twitch/callback', 
-  passport.authenticate('twitch', { 
-    failureRedirect: '/login',
-    successRedirect: '/dashboard'
-  })
+  function(req, res, next) {
+    passport.authenticate('twitch', function(err, user, info) {
+      if (err) {
+        console.error('Passport authentication error:', err);
+        return res.redirect('/?error=' + encodeURIComponent('Authentication failed: ' + err.message));
+      }
+      
+      if (!user) {
+        console.error('Authentication failed, no user returned:', info);
+        return res.redirect('/?error=' + encodeURIComponent('Authentication failed'));
+      }
+      
+      req.logIn(user, function(err) {
+        if (err) {
+          console.error('Login error:', err);
+          return res.redirect('/?error=' + encodeURIComponent('Login failed'));
+        }
+        return res.redirect('/dashboard');
+      });
+    })(req, res, next);
+  }
 );
 
 // Check if user is authenticated
