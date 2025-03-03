@@ -120,7 +120,8 @@ passport.use(new TwitchStrategy({
   callbackURL: process.env.TWITCH_CALLBACK_URL || 'http://localhost:3000/auth/twitch/callback',
   scope: 'user:read:email channel:moderate chat:edit chat:read moderation:read',
   state: true,
-}, async (accessToken, refreshToken, profile, done) => {
+  passReqToCallback: true,
+}, async (req, accessToken, refreshToken, profile, done) => {
   try {
     console.log('Twitch authentication for:', profile.login, profile.display_name);
     

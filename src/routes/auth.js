@@ -12,20 +12,30 @@ console.log(`Auth routes initialized with target channel: ${TARGET_CHANNEL}`);
 // Frontend URL for redirects
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://emotefroggy.github.io/Retrora-Bot';
 
-// Twitch authentication route
-router.get('/twitch', passport.authenticate('twitch'));
+// Twitch authentication route with explicit return_to parameter
+router.get('/twitch', (req, res, next) => {
+  // Force the return URL to be the root of the GitHub Pages site
+  req.session.returnTo = FRONTEND_URL;
+  next();
+}, passport.authenticate('twitch'));
 
 // Twitch callback route
 router.get('/twitch/callback', 
   passport.authenticate('twitch', { failureRedirect: '/login' }),
   (req, res) => {
-    // After successful authentication, redirect to GitHub Pages
+    // After successful authentication, redirect to GitHub Pages root
+    // Do not add any query parameters
+    console.log(`Authentication successful, redirecting to: ${FRONTEND_URL}`);
     res.redirect(FRONTEND_URL);
   }
 );
 
 // Check if user is authenticated
 router.get('/status', (req, res) => {
+  // Set proper CORS headers for this specific endpoint
+  res.header('Access-Control-Allow-Origin', FRONTEND_URL);
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
   if (req.isAuthenticated()) {
     console.log('User authenticated:', req.user.displayName);
     console.log('Moderated channels:', req.user.moderatedChannels || []);
@@ -57,9 +67,15 @@ router.get('/status', (req, res) => {
 
 // Logout route
 router.get('/logout', (req, res) => {
+  // Set proper CORS headers
+  res.header('Access-Control-Allow-Origin', FRONTEND_URL);
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  // Perform logout
   req.logout(function(err) {
     if (err) { return next(err); }
     // Redirect to GitHub Pages after logout
+    console.log(`Logout successful, redirecting to: ${FRONTEND_URL}`);
     res.redirect(FRONTEND_URL);
   });
 });

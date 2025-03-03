@@ -41,7 +41,7 @@ require('./config/passport');
 
 // CORS configuration for production
 app.use(cors({
-  origin: [FRONTEND_URL, BACKEND_URL, 'https://emotefroggy.github.io'],
+  origin: [FRONTEND_URL, 'https://emotefroggy.github.io', 'https://emotefroggy.github.io/Retrora-Bot'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -54,15 +54,18 @@ app.use(express.urlencoded({ extended: true }));
 app.use(session({
   secret: process.env.SESSION_SECRET || 'twitch-bot-secret',
   resave: false,
-  saveUninitialized: false,
+  saveUninitialized: true,
   store: process.env.MONGODB_URI 
-    ? MongoStore.create({ mongoUrl: process.env.MONGODB_URI }) 
+    ? MongoStore.create({ 
+        mongoUrl: process.env.MONGODB_URI,
+        ttl: 24 * 60 * 60 // 1 day
+      }) 
     : null,
   cookie: {
     maxAge: 24 * 60 * 60 * 1000, // 1 day
     secure: isProduction,
-    sameSite: 'none', // Always use 'none' for cross-origin cookies
-    domain: undefined // Don't set a specific domain to allow cross-domain sharing
+    sameSite: 'none',
+    httpOnly: true
   }
 }));
 
