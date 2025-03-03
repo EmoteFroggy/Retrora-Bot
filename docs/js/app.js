@@ -204,9 +204,37 @@ async function loadCommands(channel) {
     commandsTableBody.innerHTML = '<tr><td colspan="6" class="px-4 py-2 text-center">Loading commands...</td></tr>';
     
     console.log(`Loading commands for channel: ${channel}`);
-    const response = await fetch(`${API_BASE_URL}/api/commands/${channel}`, {
+    
+    // Get the auth data to pass as query parameter
+    const savedAuth = localStorage.getItem('twitchBotAuth');
+    if (!savedAuth) {
+      console.error('No auth data found in localStorage');
+      commandsTableBody.innerHTML = '<tr><td colspan="6" class="px-4 py-2 text-center text-red-400">Authentication required. Please log in again.</td></tr>';
+      return;
+    }
+    
+    const authData = JSON.parse(savedAuth);
+    
+    // Add userId as a query parameter for authentication
+    const response = await fetch(`${API_BASE_URL}/api/commands/${channel}?userId=${authData.userId}`, {
       credentials: 'include'
     });
+    
+    if (response.status === 401) {
+      console.error('Authentication failed (401 Unauthorized)');
+      localStorage.removeItem('twitchBotAuth'); // Clear invalid auth
+      commandsTableBody.innerHTML = '<tr><td colspan="6" class="px-4 py-2 text-center text-red-400">Your session has expired. Please log in again.</td></tr>';
+      
+      // Show login button
+      const loginRow = document.createElement('tr');
+      loginRow.innerHTML = `<td colspan="6" class="px-4 py-2 text-center">
+        <a href="${API_BASE_URL}/auth/twitch" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded">
+          Login with Twitch
+        </a>
+      </td>`;
+      commandsTableBody.appendChild(loginRow);
+      return;
+    }
     
     if (response.status === 403) {
       commandsTableBody.innerHTML = '<tr><td colspan="6" class="px-4 py-2 text-center text-yellow-400">You are not authorized to view commands for this channel</td></tr>';
@@ -322,11 +350,21 @@ async function saveCommand(event) {
   }
   
   try {
+    // Get auth data for the user ID
+    const savedAuth = localStorage.getItem('twitchBotAuth');
+    if (!savedAuth) {
+      alert('Authentication required. Please log in again.');
+      return;
+    }
+    
+    const authData = JSON.parse(savedAuth);
+    const authParam = `?userId=${authData.userId}`;
+    
     let response;
     
     if (editingCommandId) {
       // Update existing command
-      response = await fetch(`${API_BASE_URL}/api/commands/${currentChannel}/${editingCommandId}`, {
+      response = await fetch(`${API_BASE_URL}/api/commands/${currentChannel}/${editingCommandId}${authParam}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(commandData),
@@ -334,12 +372,18 @@ async function saveCommand(event) {
       });
     } else {
       // Create new command
-      response = await fetch(`${API_BASE_URL}/api/commands/${currentChannel}`, {
+      response = await fetch(`${API_BASE_URL}/api/commands/${currentChannel}${authParam}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(commandData),
         credentials: 'include'
       });
+    }
+    
+    if (response.status === 401) {
+      alert('Your session has expired. Please log in again.');
+      localStorage.removeItem('twitchBotAuth'); // Clear invalid auth
+      return;
     }
     
     if (response.ok) {
@@ -360,10 +404,26 @@ async function deleteCommand(commandId) {
   if (!confirm('Are you sure you want to delete this command?')) return;
   
   try {
-    const response = await fetch(`${API_BASE_URL}/api/commands/${currentChannel}/${commandId}`, {
+    // Get auth data for the user ID
+    const savedAuth = localStorage.getItem('twitchBotAuth');
+    if (!savedAuth) {
+      alert('Authentication required. Please log in again.');
+      return;
+    }
+    
+    const authData = JSON.parse(savedAuth);
+    const authParam = `?userId=${authData.userId}`;
+    
+    const response = await fetch(`${API_BASE_URL}/api/commands/${currentChannel}/${commandId}${authParam}`, {
       method: 'DELETE',
       credentials: 'include'
     });
+    
+    if (response.status === 401) {
+      alert('Your session has expired. Please log in again.');
+      localStorage.removeItem('twitchBotAuth'); // Clear invalid auth
+      return;
+    }
     
     if (response.ok) {
       loadCommands(currentChannel);

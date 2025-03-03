@@ -291,6 +291,15 @@ app.get('*', (req, res) => {
 app.get('/api/commands/:channel', (req, res) => {
   console.log('API - Get commands for channel:', req.params.channel);
   
+  // Check for user authentication via query parameter
+  const userId = req.query.userId;
+  if (!userId) {
+    console.log('No userId provided in query params');
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  
+  console.log('Request authenticated via userId:', userId);
+  
   // For a production app, you would retrieve this from your database
   // But for our simplified flow, we'll return dummy commands
   const dummyCommands = [
@@ -326,6 +335,15 @@ app.get('/api/commands/:channel', (req, res) => {
 // Create a new command
 app.post('/api/commands/:channel', express.json(), (req, res) => {
   console.log('API - Create command for channel:', req.params.channel);
+  
+  // Check for user authentication via query parameter
+  const userId = req.query.userId;
+  if (!userId) {
+    console.log('No userId provided in query params');
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  
+  console.log('Request authenticated via userId:', userId);
   console.log('Command data:', req.body);
   
   // In a real app, you would save this to the database
@@ -342,6 +360,15 @@ app.post('/api/commands/:channel', express.json(), (req, res) => {
 // Update a command
 app.put('/api/commands/:channel/:commandId', express.json(), (req, res) => {
   console.log('API - Update command:', req.params.commandId, 'for channel:', req.params.channel);
+  
+  // Check for user authentication via query parameter
+  const userId = req.query.userId;
+  if (!userId) {
+    console.log('No userId provided in query params');
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  
+  console.log('Request authenticated via userId:', userId);
   console.log('Updated data:', req.body);
   
   // In a real app, you would update this in the database
@@ -358,6 +385,15 @@ app.put('/api/commands/:channel/:commandId', express.json(), (req, res) => {
 // Delete a command
 app.delete('/api/commands/:channel/:commandId', (req, res) => {
   console.log('API - Delete command:', req.params.commandId, 'for channel:', req.params.channel);
+  
+  // Check for user authentication via query parameter
+  const userId = req.query.userId;
+  if (!userId) {
+    console.log('No userId provided in query params');
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  
+  console.log('Request authenticated via userId:', userId);
   
   // In a real app, you would delete this from the database
   // For now, just return success
