@@ -135,7 +135,7 @@ const twitchStrategyConfig = {
   clientID: process.env.TWITCH_CLIENT_ID,
   clientSecret: process.env.TWITCH_CLIENT_SECRET,
   callbackURL: process.env.TWITCH_CALLBACK_URL,
-  scope: [         // Read user email
+  scope: [
     'moderation:read',         // Read moderation data, including moderators
     'channel:moderate',        // Perform moderation actions
     'chat:read',               // Read chat messages
@@ -153,6 +153,16 @@ console.log('Twitch Strategy Configuration:', {
 passport.use(new TwitchStrategy(twitchStrategyConfig, async (req, accessToken, refreshToken, profile, done) => {
   try {
     console.log('Twitch authentication callback triggered for user:', profile.display_name);
+    
+    // Log the profile structure to debug
+    console.log('Profile structure:', JSON.stringify({
+      id: profile.id,
+      login: profile.login,
+      displayName: profile.display_name,
+      // email removed
+      // Don't log the full profile as it may be large
+      hasJsonData: !!profile._json
+    }));
     
     // Check if this user is a moderator of any channel
     const isModerator = await checkModeratorStatus(accessToken, profile.id, profile);
@@ -181,6 +191,16 @@ passport.use(new TwitchStrategy(twitchStrategyConfig, async (req, accessToken, r
     
     console.log(`User ${profile.display_name} moderated channels: ${moderatedChannels.join(', ')}`);
     
+    // Extract profile image URL safely
+    let profileImageUrl = null;
+    if (profile._json && profile._json.profile_image_url) {
+      profileImageUrl = profile._json.profile_image_url;
+    } else if (profile.photos && profile.photos.length > 0) {
+      profileImageUrl = profile.photos[0].value;
+    }
+    
+    console.log(`Profile image URL: ${profileImageUrl || 'Not available'}`);
+    
     // Check if user exists
     let user = await User.findOne({ twitchId: profile.id });
     
@@ -189,9 +209,8 @@ passport.use(new TwitchStrategy(twitchStrategyConfig, async (req, accessToken, r
       // Create new user
       user = new User({
         twitchId: profile.id,
-        displayName: profile.display_name || profile.username,
-        email: profile.email,
-        profileImage: profile._json.profile_image_url,
+        displayName: profile.display_name || profile.username || profile.login,
+        profileImage: profileImageUrl,
         accessToken,
         refreshToken,
         moderatedChannels: moderatedChannels,
@@ -200,9 +219,10 @@ passport.use(new TwitchStrategy(twitchStrategyConfig, async (req, accessToken, r
     } else {
       console.log(`Updating existing user for ${profile.display_name}`);
       // Update existing user
-      user.displayName = profile.display_name || profile.username;
-      user.email = profile.email;
-      user.profileImage = profile._json.profile_image_url;
+      user.displayName = profile.display_name || profile.username || profile.login;
+      if (profileImageUrl) {
+        user.profileImage = profileImageUrl;
+      }
       user.accessToken = accessToken;
       user.refreshToken = refreshToken;
       user.moderatedChannels = moderatedChannels;
