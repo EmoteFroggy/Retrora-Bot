@@ -15,8 +15,21 @@ router.get('/twitch', (req, res, next) => {
   console.log('Initiating Twitch authentication...');
   console.log('Callback URL:', process.env.TWITCH_CALLBACK_URL);
   console.log('Environment:', process.env.NODE_ENV);
+  console.log('Client ID (truncated):', process.env.TWITCH_CLIENT_ID ? `${process.env.TWITCH_CLIENT_ID.substring(0, 5)}...` : 'Not set');
   
-  passport.authenticate('twitch')(req, res, next);
+  // Reset any existing authentication state to ensure a fresh session
+  if (req.session) {
+    if (req.session.passport) {
+      delete req.session.passport;
+    }
+    req.session.authAttempt = Date.now();
+  }
+  
+  // Force login to ensure a fresh authorization code
+  passport.authenticate('twitch', { 
+    forceVerify: true,  // Force Twitch to re-verify the user
+    session: true       // Ensure session is used
+  })(req, res, next);
 });
 
 // Twitch callback route with detailed error handling

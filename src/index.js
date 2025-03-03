@@ -90,19 +90,31 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // Express session with MongoDB store
-app.use(session({
+const sessionConfig = {
   secret: process.env.SESSION_SECRET || 'twitch-bot-secret',
   resave: false,
   saveUninitialized: false,
   store: process.env.MONGODB_URI 
-    ? MongoStore.create({ mongoUrl: process.env.MONGODB_URI }) 
+    ? MongoStore.create({ 
+        mongoUrl: process.env.MONGODB_URI,
+        touchAfter: 24 * 3600 // Only update the session once per day (in seconds)
+      }) 
     : null,
   cookie: {
     maxAge: 24 * 60 * 60 * 1000, // 1 day
     secure: process.env.NODE_ENV === 'production',
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
   }
-}));
+};
+
+// In production environment, ensure secure cookie is used with sameSite none
+if (process.env.NODE_ENV === 'production') {
+  sessionConfig.cookie.secure = true;
+  sessionConfig.cookie.sameSite = 'none';
+  console.log('Session configured for production with secure cookies');
+}
+
+app.use(session(sessionConfig));
 
 // Initialize Passport
 app.use(passport.initialize());

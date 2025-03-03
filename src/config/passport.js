@@ -143,7 +143,12 @@ const twitchStrategyConfig = {
     'chat:read',               // Read chat messages
     'chat:edit'                // Send chat messages (for bot functionality)
   ],
-  passReqToCallback: true
+  passReqToCallback: true,
+  state: true,                 // Enable CSRF protection
+  pkce: false,                 // Twitch doesn't support PKCE for OAuth 2.0 (as of writing)
+  customHeaders: {             // Add custom headers to improve reliability
+    'Accept': 'application/vnd.twitchtv.v5+json'
+  }
 };
 
 // Log the strategy configuration for debugging
