@@ -132,6 +132,21 @@ app.get('/api/status', (req, res) => {
   });
 });
 
+// Dashboard route - should redirect to GitHub Pages frontend with authenticated user info
+app.get('/dashboard', (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.redirect('/?error=authentication_required');
+  }
+  
+  if (process.env.NODE_ENV === 'production') {
+    // In production, redirect to the GitHub Pages frontend with auth token
+    return res.redirect(`https://emotefroggy.github.io/Retrora-Bot/dashboard.html?userId=${req.user.id}`);
+  }
+  
+  // In development, serve the dashboard from public folder
+  res.sendFile(path.join(__dirname, '../public', 'dashboard.html'));
+});
+
 // Redirect the root to GitHub Pages in production
 app.get('/', (req, res) => {
   if (process.env.NODE_ENV === 'production') {
