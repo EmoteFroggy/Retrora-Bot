@@ -1,13 +1,13 @@
-// Twitch Bot Dashboard Frontend (GitHub Pages Version)
+// Retrora Bot Dashboard Frontend
 
-// API Base URL - Change this to your Vercel deployment URL
-const API_BASE_URL = "https://retrora-bot.vercel.app";
+// API base URL - points to Vercel backend
+const API_BASE_URL = 'https://retrora-bot.vercel.app';
 
 // DOM Elements
 const authSection = document.getElementById('auth-section');
 const homeSection = document.getElementById('home-section');
 const dashboardSection = document.getElementById('dashboard-section');
-const loginButton = document.getElementById('login-button');
+const channelSelect = document.getElementById('channel-select');
 const commandsTableBody = document.getElementById('commands-table-body');
 const addCommandBtn = document.getElementById('add-command-btn');
 const commandModal = document.getElementById('command-modal');
@@ -29,8 +29,9 @@ let editingCommandId = null;
 async function init() {
   try {
     // Check authentication status
-    const response = await fetch(`${API_BASE_URL}/auth/status`, {
-      credentials: 'include'
+    const response = await fetch(`${API_BASE_URL}/auth/status`, { 
+      credentials: 'include',
+      mode: 'cors'
     });
     const data = await response.json();
     
@@ -50,18 +51,9 @@ async function init() {
 function showHome() {
   homeSection.classList.remove('hidden');
   dashboardSection.classList.add('hidden');
-  
-  // Set auth section
   authSection.innerHTML = `
     <a href="${API_BASE_URL}/auth/twitch" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded btn-twitch">
       Login
-    </a>
-  `;
-  
-  // Set login button
-  loginButton.innerHTML = `
-    <a href="${API_BASE_URL}/auth/twitch" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg text-lg transition duration-300">
-      Login with Twitch
     </a>
   `;
 }
@@ -70,11 +62,8 @@ function showHome() {
 function showDashboard() {
   homeSection.classList.add('hidden');
   dashboardSection.classList.remove('hidden');
-  
-  // Set auth section with user info
   authSection.innerHTML = `
     <div class="flex items-center">
-      <img src="${currentUser.profileImage || 'https://placehold.co/30x30'}" alt="${currentUser.displayName}" class="w-8 h-8 rounded-full mr-2">
       <span class="mr-4">${currentUser.displayName}</span>
       <a href="${API_BASE_URL}/auth/logout" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">
         Logout
@@ -84,11 +73,21 @@ function showDashboard() {
   
   // Check if user has access to any channel
   if (currentUser.moderatedChannels && currentUser.moderatedChannels.length > 0) {
+    // Single channel - hide the channel select
+    if (channelSelect) {
+      channelSelect.parentElement.style.display = 'none';
+    }
+    
     // Load commands for the target channel
     currentChannel = currentUser.moderatedChannels[0];
     loadCommands(currentChannel);
   } else {
     // No moderation privileges
+    if (channelSelect && channelSelect.parentElement) {
+      channelSelect.parentElement.style.display = 'none';
+    }
+    
+    // Show message that user doesn't have access
     document.querySelector('#dashboard-section h2').textContent = 'No Access';
     commandsTableBody.innerHTML = '<tr><td colspan="6" class="px-4 py-2 text-center">You do not have permission to edit commands for this channel. Only moderators can edit commands.</td></tr>';
     
@@ -102,8 +101,9 @@ function showDashboard() {
 // Load commands for a channel
 async function loadCommands(channel) {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/commands/${channel}`, {
-      credentials: 'include'
+    const response = await fetch(`${API_BASE_URL}/api/commands/${channel}`, { 
+      credentials: 'include',
+      mode: 'cors'
     });
     
     if (response.status === 403) {
@@ -138,7 +138,7 @@ function renderCommands() {
       <td class="px-4 py-2 text-center">${command.cooldown}s</td>
       <td class="px-4 py-2 text-center capitalize">${command.userLevel}</td>
       <td class="px-4 py-2 text-center">
-        <span class="inline-block w-3 h-3 rounded-full ${command.enabled ? 'bg-green-500' : 'bg-red-500'}"></span>
+        <span class="inline-block w-3 h-3 rounded-full ${command.enabled ? 'status-enabled' : 'status-disabled'}"></span>
         <span class="ml-1">${command.enabled ? 'Enabled' : 'Disabled'}</span>
       </td>
       <td class="px-4 py-2 text-center">
@@ -219,16 +219,18 @@ async function saveCommand(event) {
       response = await fetch(`${API_BASE_URL}/api/commands/${currentChannel}/${editingCommandId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(commandData),
-        credentials: 'include'
+        credentials: 'include',
+        mode: 'cors',
+        body: JSON.stringify(commandData)
       });
     } else {
       // Create new command
       response = await fetch(`${API_BASE_URL}/api/commands/${currentChannel}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(commandData),
-        credentials: 'include'
+        credentials: 'include',
+        mode: 'cors',
+        body: JSON.stringify(commandData)
       });
     }
     
@@ -252,7 +254,8 @@ async function deleteCommand(commandId) {
   try {
     const response = await fetch(`${API_BASE_URL}/api/commands/${currentChannel}/${commandId}`, {
       method: 'DELETE',
-      credentials: 'include'
+      credentials: 'include',
+      mode: 'cors'
     });
     
     if (response.ok) {
@@ -269,16 +272,20 @@ async function deleteCommand(commandId) {
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', () => {
+  // Initialize app
   init();
   
+  // Add command button
   if (addCommandBtn) {
     addCommandBtn.addEventListener('click', openAddModal);
   }
   
+  // Cancel command button
   if (cancelCommandBtn) {
     cancelCommandBtn.addEventListener('click', closeModal);
   }
   
+  // Command form
   if (commandForm) {
     commandForm.addEventListener('submit', saveCommand);
   }

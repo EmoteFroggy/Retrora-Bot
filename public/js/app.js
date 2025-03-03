@@ -1,7 +1,7 @@
 // Twitch Bot Dashboard Frontend
 
-// API Base URL - Change this to your Vercel deployment URL
-const API_BASE_URL = "https://retrora-bot.vercel.app";
+// API base URL - change when deploying
+const API_BASE_URL = 'https://retrora-bot.vercel.app';
 
 // DOM Elements
 const authSection = document.getElementById('auth-section');
@@ -29,9 +29,7 @@ let editingCommandId = null;
 async function init() {
   try {
     // Check authentication status
-    const response = await fetch(`${API_BASE_URL}/auth/status`, {
-      credentials: 'include'
-    });
+    const response = await fetch(`${API_BASE_URL}/auth/status`, { credentials: 'include' });
     const data = await response.json();
     
     if (data.isAuthenticated) {
@@ -100,9 +98,7 @@ function showDashboard() {
 // Load commands for a channel
 async function loadCommands(channel) {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/commands/${channel}`, {
-      credentials: 'include'
-    });
+    const response = await fetch(`${API_BASE_URL}/api/commands/${channel}`, { credentials: 'include' });
     
     if (response.status === 403) {
       commandsTableBody.innerHTML = '<tr><td colspan="6" class="px-4 py-2 text-center">You are not authorized to view commands for this channel</td></tr>';
@@ -217,16 +213,16 @@ async function saveCommand(event) {
       response = await fetch(`${API_BASE_URL}/api/commands/${currentChannel}/${editingCommandId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(commandData),
-        credentials: 'include'
+        credentials: 'include',
+        body: JSON.stringify(commandData)
       });
     } else {
       // Create new command
       response = await fetch(`${API_BASE_URL}/api/commands/${currentChannel}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(commandData),
-        credentials: 'include'
+        credentials: 'include',
+        body: JSON.stringify(commandData)
       });
     }
     
@@ -265,19 +261,8 @@ async function deleteCommand(commandId) {
   }
 }
 
-// Event listeners
-document.addEventListener('DOMContentLoaded', () => {
-  init();
-  
-  if (addCommandBtn) {
-    addCommandBtn.addEventListener('click', openAddModal);
-  }
-  
-  if (cancelCommandBtn) {
-    cancelCommandBtn.addEventListener('click', closeModal);
-  }
-  
-  if (commandForm) {
-    commandForm.addEventListener('submit', saveCommand);
-  }
-}); 
+// Event Listeners
+document.addEventListener('DOMContentLoaded', init);
+addCommandBtn.addEventListener('click', openAddModal);
+cancelCommandBtn.addEventListener('click', closeModal);
+commandForm.addEventListener('submit', saveCommand); 

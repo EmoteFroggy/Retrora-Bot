@@ -8,43 +8,16 @@ const TARGET_CHANNEL = process.env.CHANNEL_NAME
   : null;
 
 console.log(`Auth routes initialized with target channel: ${TARGET_CHANNEL}`);
-console.log(`Using Twitch callback URL: ${process.env.TWITCH_CALLBACK_URL}`);
 
-// Twitch authentication route - simplified version
-router.get('/twitch', (req, res, next) => {
-  console.log('Starting Twitch authentication (simplified)');
-  
-  // Simple authentication with no extra options
-  passport.authenticate('twitch')(req, res, next);
-});
+// Twitch authentication route
+router.get('/twitch', passport.authenticate('twitch'));
 
-// Simplified callback route with direct approach
+// Twitch callback route
 router.get('/twitch/callback', 
   passport.authenticate('twitch', { 
-    failureRedirect: '/?error=auth_failed'
-  }),
-  (req, res) => {
-    // At this point authentication succeeded
-    console.log('Authentication successful via simplified flow');
-    console.log('User:', req.user ? `${req.user.displayName} (${req.user.id})` : 'No user object');
-    
-    // Generate authentication token (in a real app, use a proper JWT or secure token)
-    // Here we're using the access token from Twitch directly
-    const authToken = req.user.accessToken;
-    
-    console.log('Generated auth token for user');
-    
-    // Handle successful authentication
-    if (process.env.NODE_ENV === 'production') {
-      // Send to GitHub Pages with auth token
-      const redirectURL = `https://emotefroggy.github.io/Retrora-Bot/dashboard.html?loggedIn=true&userId=${req.user.id}&authToken=${encodeURIComponent(authToken)}`;
-      console.log('Redirecting to:', redirectURL);
-      return res.redirect(redirectURL);
-    } else {
-      // Local development
-      return res.redirect('/dashboard');
-    }
-  }
+    failureRedirect: '/login',
+    successRedirect: '/dashboard'
+  })
 );
 
 // Check if user is authenticated
@@ -76,43 +49,6 @@ router.get('/status', (req, res) => {
     console.log('User not authenticated');
     res.json({ isAuthenticated: false });
   }
-});
-
-// Handle authentication errors for the frontend
-router.get('/error', (req, res) => {
-  const error = req.query.error || 'Unknown error';
-  const description = req.query.error_description || 'An error occurred during authentication';
-  
-  console.error(`Auth error: ${error} - ${description}`);
-  
-  res.json({
-    success: false,
-    error,
-    description
-  });
-});
-
-// Debug route (REMOVE IN PRODUCTION!)
-router.get('/debug', (req, res) => {
-  // Only enable in development
-  if (process.env.NODE_ENV === 'production') {
-    return res.status(404).json({ error: 'Not found' });
-  }
-  
-  res.json({
-    environment: process.env.NODE_ENV,
-    twitch: {
-      callbackUrl: process.env.TWITCH_CALLBACK_URL,
-      clientId: process.env.TWITCH_CLIENT_ID ? '✓ Set' : '✗ Not set',
-      clientSecret: process.env.TWITCH_CLIENT_SECRET ? '✓ Set' : '✗ Not set',
-      channelName: process.env.CHANNEL_NAME || 'Not set'
-    },
-    server: {
-      host: req.headers.host,
-      protocol: req.protocol,
-      originalUrl: req.originalUrl
-    }
-  });
 });
 
 // Logout route
@@ -167,23 +103,6 @@ const isModeratorOf = (channelName) => {
     });
   };
 };
-
-// User data endpoint for GitHub Pages frontend
-router.get('/user/:id', (req, res) => {
-  console.log('Getting user data by ID:', req.params.id);
-  
-  // For a production app, you would retrieve this from your database
-  // But for our simplified flow, we'll create a mock user
-  const userData = {
-    id: req.params.id,
-    displayName: 'Twitch User',
-    profileImage: 'https://static-cdn.jtvnw.net/user-default-pictures-uv/ebe4cd89-b4f4-4cd9-adac-2f30151b4209-profile_image-300x300.png',
-    moderatedChannels: [process.env.CHANNEL_NAME.toLowerCase()],
-    isAdmin: true // Assuming they're authenticated, they're allowed access
-  };
-  
-  return res.json(userData);
-});
 
 // Export the router and middleware
 module.exports = router;
