@@ -1,7 +1,7 @@
 // Twitch Bot Dashboard Frontend (GitHub Pages Version)
 
 // API Base URL - Change this to your Vercel deployment URL
-const API_BASE_URL = "https://REPLACE_WITH_YOUR_VERCEL_DOMAIN";
+const API_BASE_URL = "https://retrora-bot.vercel.app";
 
 // DOM Elements
 const authSection = document.getElementById('auth-section');

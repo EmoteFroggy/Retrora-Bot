@@ -30,7 +30,7 @@ require('./config/passport');
 
 // CORS configuration - Allow requests from GitHub Pages and development
 const allowedOrigins = [
-  'https://REPLACE_WITH_YOUR_GITHUB_PAGES_URL',  // Replace with your GitHub Pages URL
+  'https://emotefroggy.github.io/Retrora-Bot/',  // Replace with your GitHub Pages URL
   'http://localhost:3000',
   'http://localhost:5000',
   'http://127.0.0.1:5500'  // Common Live Server port
@@ -105,7 +105,7 @@ app.get('/api/status', (req, res) => {
 // Redirect the root to GitHub Pages in production
 app.get('/', (req, res) => {
   if (process.env.NODE_ENV === 'production') {
-    return res.redirect('https://REPLACE_WITH_YOUR_GITHUB_PAGES_URL');
+    return res.redirect('https://emotefroggy.github.io/Retrora-Bot/');
   }
   // In development, serve the index.html
   res.sendFile(path.join(__dirname, '../public', 'index.html'));
