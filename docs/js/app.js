@@ -28,6 +28,9 @@ let editingCommandId = null;
 // Initialize the app
 async function init() {
   try {
+    // Show loading
+    showLoading();
+    
     // Check URL parameters for authentication status
     const params = new URLSearchParams(window.location.search);
     const loggedIn = params.get('loggedIn');
@@ -75,12 +78,14 @@ async function init() {
     }
   } catch (error) {
     console.error('Error initializing app:', error);
-    showHome();
+    showError();
   }
 }
 
 // Show home page
 function showHome() {
+  document.getElementById('loading-section').classList.add('hidden');
+  document.getElementById('error-section').classList.add('hidden');
   homeSection.classList.remove('hidden');
   dashboardSection.classList.add('hidden');
   
@@ -101,6 +106,8 @@ function showHome() {
 
 // Show dashboard
 function showDashboard() {
+  document.getElementById('loading-section').classList.add('hidden');
+  document.getElementById('error-section').classList.add('hidden');
   homeSection.classList.add('hidden');
   dashboardSection.classList.remove('hidden');
   
@@ -117,6 +124,9 @@ function showDashboard() {
   
   // Check if user has access to any channel
   if (currentUser.moderatedChannels && currentUser.moderatedChannels.length > 0) {
+    // Update header
+    document.querySelector('#dashboard-section h2').textContent = `Commands for ${currentUser.moderatedChannels[0]}`;
+    
     // Load commands for the target channel
     currentChannel = currentUser.moderatedChannels[0];
     loadCommands(currentChannel);
@@ -135,20 +145,31 @@ function showDashboard() {
 // Load commands for a channel
 async function loadCommands(channel) {
   try {
+    commandsTableBody.innerHTML = '<tr><td colspan="6" class="px-4 py-2 text-center">Loading commands...</td></tr>';
+    
+    console.log(`Loading commands for channel: ${channel}`);
     const response = await fetch(`${API_BASE_URL}/api/commands/${channel}`, {
       credentials: 'include'
     });
     
     if (response.status === 403) {
-      commandsTableBody.innerHTML = '<tr><td colspan="6" class="px-4 py-2 text-center">You are not authorized to view commands for this channel</td></tr>';
+      commandsTableBody.innerHTML = '<tr><td colspan="6" class="px-4 py-2 text-center text-yellow-400">You are not authorized to view commands for this channel</td></tr>';
+      return;
+    }
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Error loading commands: ${response.status} - ${errorText}`);
+      commandsTableBody.innerHTML = `<tr><td colspan="6" class="px-4 py-2 text-center text-red-400">Error loading commands: ${response.status}</td></tr>`;
       return;
     }
     
     commands = await response.json();
+    console.log(`Loaded ${commands.length} commands`);
     renderCommands();
   } catch (error) {
     console.error('Error loading commands:', error);
-    commandsTableBody.innerHTML = '<tr><td colspan="6" class="px-4 py-2 text-center">Error loading commands</td></tr>';
+    commandsTableBody.innerHTML = `<tr><td colspan="6" class="px-4 py-2 text-center text-red-400">Error loading commands: ${error.message}</td></tr>`;
   }
 }
 
@@ -300,19 +321,39 @@ async function deleteCommand(commandId) {
   }
 }
 
-// Event listeners
+// Show loading screen
+function showLoading() {
+  homeSection.classList.add('hidden');
+  dashboardSection.classList.add('hidden');
+  document.getElementById('error-section').classList.add('hidden');
+  document.getElementById('loading-section').classList.remove('hidden');
+}
+
+// Show error message
+function showError(message) {
+  homeSection.classList.add('hidden');
+  dashboardSection.classList.add('hidden');
+  document.getElementById('loading-section').classList.add('hidden');
+  
+  const errorSection = document.getElementById('error-section');
+  errorSection.classList.remove('hidden');
+  
+  const errorMessage = document.getElementById('error-message');
+  errorMessage.textContent = message || 'An error occurred. Please try again.';
+}
+
+// Add event listeners
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('Document loaded - initializing app');
+  
+  // Initialize app
   init();
   
-  if (addCommandBtn) {
-    addCommandBtn.addEventListener('click', openAddModal);
-  }
+  // Command form event listeners
+  addCommandBtn?.addEventListener('click', openAddModal);
+  cancelCommandBtn?.addEventListener('click', closeModal);
+  commandForm?.addEventListener('submit', saveCommand);
   
-  if (cancelCommandBtn) {
-    cancelCommandBtn.addEventListener('click', closeModal);
-  }
-  
-  if (commandForm) {
-    commandForm.addEventListener('submit', saveCommand);
-  }
+  // Retry button
+  document.getElementById('retry-button')?.addEventListener('click', init);
 }); 

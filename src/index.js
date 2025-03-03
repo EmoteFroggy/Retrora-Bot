@@ -171,6 +171,23 @@ app.get('/api/user', (req, res) => {
   }
 });
 
+// User data API endpoint (for GitHub Pages frontend)
+app.get('/api/user/:id', (req, res) => {
+  console.log('API - Get user data by ID:', req.params.id);
+  
+  // For a production app, you would retrieve this from your database
+  // But for our simplified flow, we'll create a mock user
+  const userData = {
+    id: req.params.id,
+    displayName: 'Twitch User',
+    profileImage: 'https://static-cdn.jtvnw.net/user-default-pictures-uv/ebe4cd89-b4f4-4cd9-adac-2f30151b4209-profile_image-300x300.png',
+    moderatedChannels: [process.env.CHANNEL_NAME.toLowerCase()],
+    isAdmin: true // Assuming they're authenticated, they're allowed access
+  };
+  
+  return res.json(userData);
+});
+
 // Simple status route
 app.get('/api/status', (req, res) => {
   res.json({ 
@@ -211,6 +228,42 @@ app.get('*', (req, res) => {
   }
   // In production, return a 404 for unknown routes
   res.status(404).send('Not found');
+});
+
+// Commands API endpoint (for GitHub Pages frontend)
+app.get('/api/commands/:channel', (req, res) => {
+  console.log('API - Get commands for channel:', req.params.channel);
+  
+  // For a production app, you would retrieve this from your database
+  // But for our simplified flow, we'll return dummy commands
+  const dummyCommands = [
+    {
+      _id: '1',
+      name: 'hello',
+      response: 'Hello, world!',
+      cooldown: 5,
+      userLevel: 'everyone',
+      enabled: true
+    },
+    {
+      _id: '2',
+      name: 'discord',
+      response: 'Join our Discord server at https://discord.gg/example',
+      cooldown: 30,
+      userLevel: 'everyone',
+      enabled: true
+    },
+    {
+      _id: '3',
+      name: 'uptime',
+      response: 'Stream has been live for X hours',
+      cooldown: 15,
+      userLevel: 'moderator',
+      enabled: true
+    }
+  ];
+  
+  return res.json(dummyCommands);
 });
 
 // Start the server if not in serverless environment

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Twitch Bot Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link href="css/styles.css" rel="stylesheet">
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+  <header class="bg-gray-800 shadow-md">
+    <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+      <h1 class="text-xl md:text-2xl font-bold">Twitch Bot Dashboard</h1>
+      <div id="auth-section" class="flex items-center">
+        <!-- Auth content will be inserted here by JavaScript -->
+      </div>
+    </div>
+  </header>
+
+  <main class="container mx-auto px-4 py-8">
+    <!-- Home Section (Login Screen) -->
+    <section id="home-section" class="hidden">
+      <div class="max-w-2xl mx-auto text-center py-12">
+        <h2 class="text-3xl font-bold mb-6">Welcome to the Twitch Bot Dashboard</h2>
+        <p class="text-xl mb-8">Manage your chat commands easily!</p>
+        <div id="login-button">
+          <!-- Login button will be inserted here by JavaScript -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Dashboard Section -->
+    <section id="dashboard-section" class="hidden">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold">Commands</h2>
+        <button id="add-command-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded">
+          Add Command
+        </button>
+      </div>
+
+      <!-- Commands Table -->
+      <div class="bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <table class="min-w-full">
+          <thead>
+            <tr class="bg-gray-700">
+              <th class="px-4 py-3 text-left">Command</th>
+              <th class="px-4 py-3 text-left">Response</th>
+              <th class="px-4 py-3 text-center">Cooldown</th>
+              <th class="px-4 py-3 text-center">User Level</th>
+              <th class="px-4 py-3 text-center">Status</th>
+              <th class="px-4 py-3 text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="commands-table-body">
+            <!-- Command rows will be inserted here by JavaScript -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Loading Indicator -->
+    <div id="loading-section" class="flex justify-center items-center py-20">
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+    </div>
+
+    <!-- Error Message -->
+    <div id="error-section" class="hidden max-w-2xl mx-auto text-center py-12">
+      <h2 class="text-2xl font-bold mb-4 text-red-500">Error</h2>
+      <p id="error-message" class="text-lg mb-6">An error occurred.</p>
+      <button id="retry-button" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded">
+        Try Again
+      </button>
+    </div>
+  </main>
+
+  <!-- Command Modal -->
+  <div id="command-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-gray-800 rounded-lg shadow-xl w-full max-w-md p-6">
+      <h2 id="modal-title" class="text-xl font-bold mb-4">Add Command</h2>
+      
+      <form id="command-form">
+        <div class="mb-4">
+          <label for="command-name" class="block text-sm font-medium mb-1">Command Name</label>
+          <div class="flex">
+            <span class="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-600 bg-gray-700 text-gray-400">!</span>
+            <input type="text" id="command-name" class="form-input rounded-r-md bg-gray-700 border-gray-600 text-white w-full focus:ring-purple-500 focus:border-purple-500" placeholder="command">
+          </div>
+        </div>
+        
+        <div class="mb-4">
+          <label for="command-response" class="block text-sm font-medium mb-1">Response</label>
+          <textarea id="command-response" rows="3" class="form-textarea bg-gray-700 border-gray-600 text-white w-full rounded-md focus:ring-purple-500 focus:border-purple-500" placeholder="Command response..."></textarea>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <label for="command-cooldown" class="block text-sm font-medium mb-1">Cooldown (seconds)</label>
+            <input type="number" id="command-cooldown" min="0" value="5" class="form-input bg-gray-700 border-gray-600 text-white w-full rounded-md focus:ring-purple-500 focus:border-purple-500">
+          </div>
+          
+          <div>
+            <label for="command-user-level" class="block text-sm font-medium mb-1">User Level</label>
+            <select id="command-user-level" class="form-select bg-gray-700 border-gray-600 text-white w-full rounded-md focus:ring-purple-500 focus:border-purple-500">
+              <option value="everyone">Everyone</option>
+              <option value="subscriber">Subscribers</option>
+              <option value="vip">VIPs</option>
+              <option value="moderator">Moderators</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="flex justify-end space-x-2">
+          <button type="button" id="cancel-command-btn" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded">
+            Cancel
+          </button>
+          <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded">
+            Save
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html> 
