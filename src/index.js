@@ -30,11 +30,13 @@ require('./config/passport');
 
 // CORS configuration - Allow requests from GitHub Pages and development
 const allowedOrigins = [
-  'https://emotefroggy.github.io/Retrora-Bot/',  // Replace with your GitHub Pages URL
+  'https://emotefroggy.github.io',  // Root GitHub Pages domain without trailing slash
+  'https://emotefroggy.github.io/Retrora-Bot',  // Your GitHub Pages URL without trailing slash
   'http://localhost:3000',
   'http://localhost:5000',
-  'http://127.0.0.1:5500'  // Common Live Server port
-];
+  'http://127.0.0.1:5500',  // Common Live Server port
+  process.env.CLIENT_URL    // Dynamic client URL from environment variable
+].filter(Boolean); // Remove any undefined/empty entries
 
 // Middleware
 app.use((req, res, next) => {
@@ -50,15 +52,18 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps, curl, etc)
     if (!origin) return callback(null, true);
     
+    // Check if the origin is allowed
     if (allowedOrigins.indexOf(origin) === -1) {
-      console.log(`CORS request from: ${origin}`);
-      // If specific origins are required, you can block here
-      // const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      // return callback(new Error(msg), false);
+      console.log(`CORS request from origin: ${origin}`);
+      console.log(`Allowed origins: ${JSON.stringify(allowedOrigins)}`);
       
-      // Or allow any origin in development
-      return callback(null, true);
+      // For security, don't tell the client why the request was rejected
+      const corsError = new Error('CORS not allowed');
+      return callback(corsError, false);
     }
+    
+    // Origin is allowed
+    console.log(`CORS allowed for origin: ${origin}`);
     return callback(null, true);
   },
   credentials: true
@@ -66,6 +71,23 @@ app.use(cors({
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Setup dynamic callback URL based on environment if needed
+if (process.env.NODE_ENV === 'production' && !process.env.TWITCH_CALLBACK_URL.includes('vercel.app')) {
+  // Get the host from the request in production
+  app.use((req, res, next) => {
+    if (req.path === '/auth/twitch' && process.env.NODE_ENV === 'production') {
+      const host = req.headers.host || '';
+      const protocol = req.headers['x-forwarded-proto'] || 'http';
+      
+      // Temporarily override the callback URL for this request
+      const dynamicCallbackUrl = `${protocol}://${host}/auth/twitch/callback`;
+      console.log(`Dynamic Twitch callback URL: ${dynamicCallbackUrl}`);
+      process.env.TWITCH_CALLBACK_URL_DYNAMIC = dynamicCallbackUrl;
+    }
+    next();
+  });
+}
 
 // Session configuration with secure settings for production
 app.use(session({

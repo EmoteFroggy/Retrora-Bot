@@ -113,15 +113,31 @@ async function checkModeratorStatus(accessToken, userId, profile) {
   }
 }
 
-// Initialize Twitch strategy
+// Configure Twitch Strategy
 passport.use(new TwitchStrategy({
   clientID: process.env.TWITCH_CLIENT_ID,
   clientSecret: process.env.TWITCH_CLIENT_SECRET,
-  callbackURL: process.env.TWITCH_CALLBACK_URL,
-  scope: 'user:read:email channel:moderate chat:edit chat:read moderation:read',
+  callbackURL: (req) => {
+    // Use dynamic URL in production if available
+    if (process.env.NODE_ENV === 'production' && process.env.TWITCH_CALLBACK_URL_DYNAMIC) {
+      console.log(`Using dynamic callback URL: ${process.env.TWITCH_CALLBACK_URL_DYNAMIC}`);
+      return process.env.TWITCH_CALLBACK_URL_DYNAMIC;
+    }
+    // Otherwise use the configured URL
+    return process.env.TWITCH_CALLBACK_URL;
+  },
+  scope: ['user:read:email', 'moderator:read:chatters', 'channel:read:moderators'],
   passReqToCallback: true
 }, async (req, accessToken, refreshToken, profile, done) => {
   try {
+    // Log callback URL and environment for debugging
+    console.log(`OAuth callback using URL: ${process.env.TWITCH_CALLBACK_URL}`);
+    console.log(`Current environment: ${process.env.NODE_ENV}`);
+    console.log(`Request host: ${req.headers.host}`);
+
+    // Check if this user is a moderator of any channel
+    const isModerator = await checkModeratorStatus(accessToken, profile.id, profile);
+
     console.log('Twitch authentication for:', profile.login, profile.display_name);
     console.log('Callback URL used:', process.env.TWITCH_CALLBACK_URL);
     
@@ -137,15 +153,6 @@ passport.use(new TwitchStrategy({
     // Check if user is broadcaster (channel owner)
     const isChannelOwner = profile.login.toLowerCase() === targetChannel.toLowerCase();
     console.log(`User ${profile.display_name} is channel owner: ${isChannelOwner}`);
-    
-    // Check moderator status - channel owner is always considered a moderator
-    let isModerator = isChannelOwner;
-    if (!isChannelOwner) {
-      console.log(`Checking if ${profile.display_name} is a moderator of ${targetChannel}`);
-      isModerator = await checkModeratorStatus(accessToken, profile.id, profile);
-    }
-    
-    console.log(`User ${profile.display_name} moderator status result: ${isModerator}`);
     
     // Set the moderatedChannels array - either contains the target channel or empty
     const moderatedChannels = [];

@@ -69,6 +69,20 @@ router.get('/status', (req, res) => {
   }
 });
 
+// Handle authentication errors for the frontend
+router.get('/error', (req, res) => {
+  const error = req.query.error || 'Unknown error';
+  const description = req.query.error_description || 'An error occurred during authentication';
+  
+  console.error(`Auth error: ${error} - ${description}`);
+  
+  res.json({
+    success: false,
+    error,
+    description
+  });
+});
+
 // Logout route
 router.get('/logout', (req, res) => {
   req.logout(function(err) {
