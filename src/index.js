@@ -61,8 +61,8 @@ app.use(session({
   cookie: {
     maxAge: 24 * 60 * 60 * 1000, // 1 day
     secure: isProduction,
-    sameSite: isProduction ? 'none' : 'lax',
-    domain: isProduction ? '.vercel.app' : undefined
+    sameSite: 'none', // Always use 'none' for cross-origin cookies
+    domain: undefined // Don't set a specific domain to allow cross-domain sharing
   }
 }));
 

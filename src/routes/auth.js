@@ -9,15 +9,19 @@ const TARGET_CHANNEL = process.env.CHANNEL_NAME
 
 console.log(`Auth routes initialized with target channel: ${TARGET_CHANNEL}`);
 
+// Frontend URL for redirects
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://emotefroggy.github.io/Retrora-Bot';
+
 // Twitch authentication route
 router.get('/twitch', passport.authenticate('twitch'));
 
 // Twitch callback route
 router.get('/twitch/callback', 
-  passport.authenticate('twitch', { 
-    failureRedirect: '/login',
-    successRedirect: '/dashboard'
-  })
+  passport.authenticate('twitch', { failureRedirect: '/login' }),
+  (req, res) => {
+    // After successful authentication, redirect to GitHub Pages
+    res.redirect(FRONTEND_URL);
+  }
 );
 
 // Check if user is authenticated
@@ -55,7 +59,8 @@ router.get('/status', (req, res) => {
 router.get('/logout', (req, res) => {
   req.logout(function(err) {
     if (err) { return next(err); }
-    res.redirect('/');
+    // Redirect to GitHub Pages after logout
+    res.redirect(FRONTEND_URL);
   });
 });
 
