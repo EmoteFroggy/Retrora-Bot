@@ -4,6 +4,11 @@ const mongoose = require('mongoose');
 const User = require('../models/user');
 const axios = require('axios');
 
+// Log environment information at startup for debugging
+console.log('Passport configuration loading...');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('TWITCH_CALLBACK_URL:', process.env.TWITCH_CALLBACK_URL);
+
 // Serialize user into the session
 passport.serializeUser((user, done) => {
   done(null, user.id);
@@ -113,28 +118,25 @@ async function checkModeratorStatus(accessToken, userId, profile) {
   }
 }
 
-// Configure Twitch Strategy
-passport.use(new TwitchStrategy({
+// Configure Twitch Strategy with fixed string callback URL
+const twitchStrategyConfig = {
   clientID: process.env.TWITCH_CLIENT_ID,
   clientSecret: process.env.TWITCH_CLIENT_SECRET,
-  callbackURL: (req) => {
-    // Use dynamic URL in production if available
-    if (process.env.NODE_ENV === 'production' && process.env.TWITCH_CALLBACK_URL_DYNAMIC) {
-      console.log(`Using dynamic callback URL: ${process.env.TWITCH_CALLBACK_URL_DYNAMIC}`);
-      return process.env.TWITCH_CALLBACK_URL_DYNAMIC;
-    }
-    // Otherwise use the configured URL
-    return process.env.TWITCH_CALLBACK_URL;
-  },
+  callbackURL: process.env.TWITCH_CALLBACK_URL,
   scope: ['user:read:email', 'moderator:read:chatters', 'channel:read:moderators'],
   passReqToCallback: true
-}, async (req, accessToken, refreshToken, profile, done) => {
-  try {
-    // Log callback URL and environment for debugging
-    console.log(`OAuth callback using URL: ${process.env.TWITCH_CALLBACK_URL}`);
-    console.log(`Current environment: ${process.env.NODE_ENV}`);
-    console.log(`Request host: ${req.headers.host}`);
+};
 
+// Log the strategy configuration for debugging
+console.log('Twitch Strategy Configuration:', {
+  ...twitchStrategyConfig,
+  clientSecret: '********' // Hide the secret
+});
+
+passport.use(new TwitchStrategy(twitchStrategyConfig, async (req, accessToken, refreshToken, profile, done) => {
+  try {
+    console.log('Twitch authentication callback triggered for user:', profile.display_name);
+    
     // Check if this user is a moderator of any channel
     const isModerator = await checkModeratorStatus(accessToken, profile.id, profile);
 

@@ -73,23 +73,23 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Setup dynamic callback URL based on environment if needed
-if (process.env.NODE_ENV === 'production' && !process.env.TWITCH_CALLBACK_URL.includes('vercel.app')) {
-  // Get the host from the request in production
+if (process.env.NODE_ENV === 'production') {
+  // Add middleware to detect the host
   app.use((req, res, next) => {
-    if (req.path === '/auth/twitch' && process.env.NODE_ENV === 'production') {
-      const host = req.headers.host || '';
-      const protocol = req.headers['x-forwarded-proto'] || 'http';
-      
-      // Temporarily override the callback URL for this request
-      const dynamicCallbackUrl = `${protocol}://${host}/auth/twitch/callback`;
-      console.log(`Dynamic Twitch callback URL: ${dynamicCallbackUrl}`);
-      process.env.TWITCH_CALLBACK_URL_DYNAMIC = dynamicCallbackUrl;
+    // Store the host information for debugging
+    if (req.headers.host) {
+      console.log(`Request received with host: ${req.headers.host}`);
+      console.log(`X-Forwarded-Proto: ${req.headers['x-forwarded-proto'] || 'not set'}`);
     }
     next();
   });
+  
+  // Log the current callback URL configuration
+  console.log(`Current TWITCH_CALLBACK_URL: ${process.env.TWITCH_CALLBACK_URL}`);
+  console.log(`Current NODE_ENV: ${process.env.NODE_ENV}`);
 }
 
-// Session configuration with secure settings for production
+// Express session with MongoDB store
 app.use(session({
   secret: process.env.SESSION_SECRET || 'twitch-bot-secret',
   resave: false,

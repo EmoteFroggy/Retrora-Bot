@@ -11,32 +11,40 @@ console.log(`Auth routes initialized with target channel: ${TARGET_CHANNEL}`);
 console.log(`Using Twitch callback URL: ${process.env.TWITCH_CALLBACK_URL}`);
 
 // Twitch authentication route
-router.get('/twitch', passport.authenticate('twitch'));
+router.get('/twitch', (req, res, next) => {
+  console.log('Initiating Twitch authentication...');
+  console.log('Callback URL:', process.env.TWITCH_CALLBACK_URL);
+  console.log('Environment:', process.env.NODE_ENV);
+  
+  passport.authenticate('twitch')(req, res, next);
+});
 
-// Twitch callback route with error handling
-router.get('/twitch/callback', 
-  function(req, res, next) {
-    passport.authenticate('twitch', function(err, user, info) {
-      if (err) {
-        console.error('Passport authentication error:', err);
-        return res.redirect('/?error=' + encodeURIComponent('Authentication failed: ' + err.message));
-      }
-      
-      if (!user) {
-        console.error('Authentication failed, no user returned:', info);
-        return res.redirect('/?error=' + encodeURIComponent('Authentication failed'));
-      }
-      
-      req.logIn(user, function(err) {
-        if (err) {
-          console.error('Login error:', err);
-          return res.redirect('/?error=' + encodeURIComponent('Login failed'));
-        }
-        return res.redirect('/dashboard');
-      });
-    })(req, res, next);
+// Twitch callback route with detailed error handling
+router.get('/twitch/callback', (req, res, next) => {
+  // Check for error parameters from Twitch OAuth
+  if (req.query.error) {
+    console.error('OAuth error from Twitch:', req.query.error);
+    console.error('Error description:', req.query.error_description);
+    
+    // For redirect_uri mismatch errors, log additional helpful information
+    if (req.query.error === 'redirect_mismatch') {
+      console.error('REDIRECT_URI MISMATCH ERROR:');
+      console.error('Current callback URL:', process.env.TWITCH_CALLBACK_URL);
+      console.error('Make sure this exact URL is registered in your Twitch Developer Console');
+      console.error('Request host:', req.headers.host);
+      console.error('Request URL:', req.url);
+      console.error('Request protocol:', req.protocol);
+    }
+    
+    return res.redirect(`/?error=${encodeURIComponent(req.query.error)}&error_description=${encodeURIComponent(req.query.error_description)}`);
   }
-);
+  
+  // If no error in query params, proceed with authentication
+  passport.authenticate('twitch', {
+    successRedirect: '/dashboard',
+    failureRedirect: '/?error=authentication_failed'
+  })(req, res, next);
+});
 
 // Check if user is authenticated
 router.get('/status', (req, res) => {
