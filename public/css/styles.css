@@ -1,0 +1,80 @@
+/* Custom styles for Twitch Bot Dashboard */
+
+/* Twitch-inspired color scheme */
+:root {
+  --twitch-purple: #9146FF;
+  --twitch-purple-dark: #772ce8;
+  --twitch-black: #0e0e10;
+  --twitch-dark-gray: #18181b;
+  --twitch-gray: #1f1f23;
+  --twitch-light-gray: #3a3a3d;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--twitch-dark-gray);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--twitch-light-gray);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--twitch-purple);
+}
+
+/* Animations */
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Table styles */
+.commands-table tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.commands-table tr:hover {
+  background-color: rgba(145, 70, 255, 0.1);
+}
+
+/* Button hover effects */
+.btn-twitch {
+  transition: all 0.2s ease;
+}
+
+.btn-twitch:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(145, 70, 255, 0.4);
+}
+
+/* Status indicators */
+.status-enabled {
+  background-color: #00b373;
+}
+
+.status-disabled {
+  background-color: #e91916;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  .commands-table {
+    font-size: 0.875rem;
+  }
+} 
