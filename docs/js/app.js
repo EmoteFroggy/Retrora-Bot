@@ -38,31 +38,54 @@ async function init() {
     
     console.log('URL Params:', { loggedIn, userId });
     
+    // If URL contains login params, store them in localStorage and clean up URL
     if (loggedIn === 'true' && userId) {
-      // User is logged in via URL params
-      console.log('User logged in via URL params:', userId);
+      console.log('User logged in via URL params, storing in localStorage');
+      localStorage.setItem('twitchBotAuth', JSON.stringify({
+        loggedIn: true,
+        userId: userId,
+        timestamp: Date.now()
+      }));
       
-      // Fetch user data
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/user/${userId}`, {
-          credentials: 'include'
-        });
-        
-        if (response.ok) {
-          currentUser = await response.json();
-          console.log('User data loaded:', currentUser);
-          showDashboard();
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    
+    // Check localStorage for saved authentication
+    const savedAuth = localStorage.getItem('twitchBotAuth');
+    if (savedAuth) {
+      const authData = JSON.parse(savedAuth);
+      console.log('Found saved auth in localStorage:', authData);
+      
+      // Check if saved auth is fresh (less than 24 hours old)
+      const isAuthFresh = Date.now() - authData.timestamp < 24 * 60 * 60 * 1000;
+      if (authData.loggedIn && authData.userId && isAuthFresh) {
+        console.log('Using saved authentication');
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/user/${authData.userId}`, {
+            credentials: 'include'
+          });
           
-          // Clean up URL
-          window.history.replaceState({}, document.title, window.location.pathname);
-          return;
+          if (response.ok) {
+            currentUser = await response.json();
+            console.log('User data loaded from saved auth:', currentUser);
+            showDashboard();
+            return;
+          } else {
+            console.error('Failed to load user with saved auth, clearing localStorage');
+            localStorage.removeItem('twitchBotAuth');
+          }
+        } catch (error) {
+          console.error('Error fetching user data with saved auth:', error);
+          localStorage.removeItem('twitchBotAuth');
         }
-      } catch (error) {
-        console.error('Error fetching user data:', error);
+      } else {
+        console.log('Saved auth is expired or invalid, clearing localStorage');
+        localStorage.removeItem('twitchBotAuth');
       }
     }
     
-    // If we reach here, try the standard auth check
+    // If we get here, try the standard auth check
     const response = await fetch(`${API_BASE_URL}/auth/status`, {
       credentials: 'include'
     });
@@ -72,6 +95,12 @@ async function init() {
     
     if (data.isAuthenticated) {
       currentUser = data.user;
+      // Save this auth state to localStorage too
+      localStorage.setItem('twitchBotAuth', JSON.stringify({
+        loggedIn: true,
+        userId: currentUser.id,
+        timestamp: Date.now()
+      }));
       showDashboard();
     } else {
       showHome();
@@ -104,6 +133,17 @@ function showHome() {
   `;
 }
 
+// Logout function
+function logout() {
+  console.log('Logging out');
+  
+  // Clear localStorage
+  localStorage.removeItem('twitchBotAuth');
+  
+  // Redirect to home/login page
+  window.location.href = window.location.pathname;
+}
+
 // Show dashboard
 function showDashboard() {
   document.getElementById('loading-section').classList.add('hidden');
@@ -124,9 +164,9 @@ function showDashboard() {
         </div>
         <div class="text-xs text-gray-400">${currentUser.login || ''}</div>
       </div>
-      <a href="${API_BASE_URL}/auth/logout" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">
+      <button onclick="logout()" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">
         Logout
-      </a>
+      </button>
     </div>
   `;
   
