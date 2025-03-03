@@ -49,14 +49,25 @@ class TwitchBot {
       
       console.log(`Looking for commands with channel: ${channelName}`);
       
-      const commands = await Command.find({ 
+      // Add timeout handling with Promise.race
+      const findPromise = Command.find({ 
         $or: [
           { channel: channelName },
           { channel: `#${channelName}` },
           { channel: this.channel }
         ],
         enabled: true 
+      }).maxTimeMS(15000); // Add explicit timeout of 15 seconds
+      
+      // Set a safety timeout in case the connection hangs
+      const timeoutPromise = new Promise((resolve, reject) => {
+        setTimeout(() => {
+          reject(new Error('Command fetch operation timed out after 15s'));
+        }, 15000);
       });
+      
+      // Race the promises - take whichever finishes first
+      const commands = await Promise.race([findPromise, timeoutPromise]);
       
       this.commands.clear();
       commands.forEach(cmd => {
@@ -73,8 +84,13 @@ class TwitchBot {
       } else {
         console.log("Commands loaded:", commands.map(c => `!${c.name}`).join(', '));
       }
+      
+      return commands.length;
     } catch (err) {
       console.error('Error loading commands:', err);
+      // Fallback to empty command set to avoid complete failure
+      this.commands.clear();
+      return 0;
     }
   }
   

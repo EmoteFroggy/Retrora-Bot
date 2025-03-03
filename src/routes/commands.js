@@ -46,11 +46,39 @@ router.get('/:channel', auth.isAuthenticated, async (req, res) => {
       return res.status(403).json({ error: 'Forbidden - Not a moderator' });
     }
     
-    const commands = await Command.find({ channel: normalizedChannel }).sort({ name: 1 });
+    // Add timeout handling
+    const timeoutMs = 15000; // 15 seconds
+    const findPromise = Command.find({ channel: normalizedChannel })
+      .sort({ name: 1 })
+      .maxTimeMS(timeoutMs);
+    
+    // Create safety timeout
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`Database operation timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+    });
+    
+    // Race the promises
+    const commands = await Promise.race([findPromise, timeoutPromise]);
     res.json(commands);
   } catch (err) {
     console.error('Error fetching commands:', err);
-    res.status(500).json({ error: 'Server error' });
+    
+    // Provide more specific error messages based on the error type
+    if (err.name === 'MongooseServerSelectionError') {
+      return res.status(503).json({ 
+        error: 'Database connection error',
+        details: 'Could not connect to MongoDB. Check network settings in MongoDB Atlas.'
+      });
+    } else if (err.message && err.message.includes('timed out')) {
+      return res.status(504).json({ 
+        error: 'Request timeout',
+        details: 'Database operation timed out. Try again later.'
+      });
+    }
+    
+    res.status(500).json({ error: 'Server error', details: err.message });
   }
 });
 

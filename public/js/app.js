@@ -95,6 +95,9 @@ function showDashboard() {
 // Load commands for a channel
 async function loadCommands(channel) {
   try {
+    // Show loading state
+    commandsTableBody.innerHTML = '<tr><td colspan="6" class="px-4 py-2 text-center">Loading commands...</td></tr>';
+    
     const response = await fetch(`/api/commands/${channel}`);
     
     if (response.status === 403) {
@@ -102,11 +105,65 @@ async function loadCommands(channel) {
       return;
     }
     
+    if (response.status === 503 || response.status === 504) {
+      // Database connection or timeout error
+      const errorData = await response.json();
+      console.error('Database connection error:', errorData);
+      
+      commandsTableBody.innerHTML = `
+        <tr>
+          <td colspan="6" class="px-4 py-2 text-center">
+            <div class="text-red-600 font-bold mb-2">Database Connection Error</div>
+            <div>${errorData.error}: ${errorData.details || ''}</div>
+            <div class="mt-2">
+              <p>Possible solutions:</p>
+              <ul class="list-disc list-inside text-left ml-4 mt-1">
+                <li>Check if MongoDB Atlas is correctly configured</li>
+                <li>Verify that IP access is set to "Allow Access from Anywhere" (0.0.0.0/0)</li>
+                <li>Check your connection string in environment variables</li>
+                <li>Try refreshing the page</li>
+              </ul>
+            </div>
+            <button id="retry-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mt-4">
+              Retry
+            </button>
+          </td>
+        </tr>
+      `;
+      
+      // Add listener to retry button
+      document.getElementById('retry-btn').addEventListener('click', () => {
+        loadCommands(channel);
+      });
+      
+      return;
+    }
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Unknown error');
+    }
+    
     commands = await response.json();
     renderCommands();
   } catch (error) {
     console.error('Error loading commands:', error);
-    commandsTableBody.innerHTML = '<tr><td colspan="6" class="px-4 py-2 text-center">Error loading commands</td></tr>';
+    commandsTableBody.innerHTML = `
+      <tr>
+        <td colspan="6" class="px-4 py-2 text-center">
+          <div class="text-red-600 font-bold mb-2">Error loading commands</div>
+          <div>${error.message}</div>
+          <button id="retry-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mt-4">
+            Retry
+          </button>
+        </td>
+      </tr>
+    `;
+    
+    // Add listener to retry button
+    document.getElementById('retry-btn').addEventListener('click', () => {
+      loadCommands(channel);
+    });
   }
 }
 

@@ -1,13 +1,15 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const mongoose = require('mongoose');
-const passport = require('passport');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
+const passport = require('passport');
 const path = require('path');
 
-// Import routes later
+// Import database connection
+const { connectToDatabase, mongoose } = require('./config/database');
+
+// Import routes
 const authRoutes = require('./routes/auth');
 const commandRoutes = require('./routes/commands');
 
@@ -19,11 +21,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Connect to MongoDB
-if (process.env.MONGODB_URI) {
-  mongoose.connect(process.env.MONGODB_URI)
-    .then(() => console.log('Connected to MongoDB'))
-    .catch(err => console.error('MongoDB connection error:', err));
-}
+connectToDatabase();
 
 // Passport configuration
 require('./config/passport');
@@ -41,12 +39,35 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'twitch-bot-secret',
   resave: false,
   saveUninitialized: false,
-  store: process.env.MONGODB_URI 
-    ? MongoStore.create({ mongoUrl: process.env.MONGODB_URI }) 
-    : null,
+  store: MongoStore.create({ 
+    mongoUrl: process.env.MONGODB_URI,
+    collectionName: 'sessions',
+    ttl: 14 * 24 * 60 * 60, // 14 days
+    autoRemove: 'native',
+    touchAfter: 24 * 3600, // time period in seconds
+    crypto: {
+      secret: process.env.SESSION_SECRET || 'twitch-bot-secret'
+    },
+    // Added these options for better resilience
+    clientPromise: null, // Let connect-mongo create its own connection
+    stringify: false, // Don't stringify session data (more efficient)
+    connectionOptions: {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 30000,
+      socketTimeoutMS: 60000,
+      connectTimeoutMS: 30000
+    },
+    // Better error handling
+    handleReconnectFailed: function() {
+      console.error('Failed to reconnect to MongoDB session store after multiple attempts');
+    }
+  }),
   cookie: {
-    maxAge: 24 * 60 * 60 * 1000, // 1 day
-    secure: process.env.NODE_ENV === 'production'
+    maxAge: 14 * 24 * 60 * 60 * 1000, // 14 days
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    httpOnly: true
   }
 }));
 
@@ -63,7 +84,11 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 // Simple status route
 app.get('/api/status', (req, res) => {
-  res.json({ status: 'online', user: req.user || null });
+  res.json({ 
+    status: 'online', 
+    user: req.user || null,
+    db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+  });
 });
 
 // Catch-all route for SPA
