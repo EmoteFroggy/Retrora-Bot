@@ -8,6 +8,8 @@ const axios = require('axios');
 console.log('Passport configuration loading...');
 console.log('NODE_ENV:', process.env.NODE_ENV);
 console.log('TWITCH_CALLBACK_URL:', process.env.TWITCH_CALLBACK_URL);
+console.log('TWITCH_CLIENT_ID is set:', !!process.env.TWITCH_CLIENT_ID);
+console.log('TWITCH_CLIENT_SECRET is set:', !!process.env.TWITCH_CLIENT_SECRET);
 
 // Serialize user into the session
 passport.serializeUser((user, done) => {

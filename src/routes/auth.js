@@ -40,9 +40,35 @@ router.get('/twitch/callback', (req, res, next) => {
   }
   
   // If no error in query params, proceed with authentication
-  passport.authenticate('twitch', {
-    successRedirect: '/dashboard',
-    failureRedirect: '/?error=authentication_failed'
+  passport.authenticate('twitch', function(err, user, info) {
+    if (err) {
+      console.error('Authentication error:', err);
+      
+      // Check for token exchange errors
+      if (err.name === 'InternalOAuthError') {
+        console.error('OAuth Token Exchange Error. Check your Twitch client ID and secret.');
+        console.error('Original error:', err.message);
+        if (err.oauthError) {
+          console.error('OAuth error details:', err.oauthError);
+        }
+        return res.redirect('/?error=oauth_token_exchange&error_description=Failed+to+obtain+access+token');
+      }
+      
+      return res.redirect(`/?error=${encodeURIComponent(err.name || 'unknown')}&error_description=${encodeURIComponent(err.message || 'Unknown error')}`);
+    }
+    
+    if (!user) {
+      console.error('No user returned from authentication');
+      return res.redirect('/?error=authentication_failed&error_description=User+not+found');
+    }
+    
+    req.logIn(user, function(loginErr) {
+      if (loginErr) {
+        console.error('Login error:', loginErr);
+        return res.redirect('/?error=login_failed&error_description=Error+during+login+process');
+      }
+      return res.redirect('/dashboard');
+    });
   })(req, res, next);
 });
 
@@ -88,6 +114,29 @@ router.get('/error', (req, res) => {
     success: false,
     error,
     description
+  });
+});
+
+// Debug route (REMOVE IN PRODUCTION!)
+router.get('/debug', (req, res) => {
+  // Only enable in development
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  
+  res.json({
+    environment: process.env.NODE_ENV,
+    twitch: {
+      callbackUrl: process.env.TWITCH_CALLBACK_URL,
+      clientId: process.env.TWITCH_CLIENT_ID ? '✓ Set' : '✗ Not set',
+      clientSecret: process.env.TWITCH_CLIENT_SECRET ? '✓ Set' : '✗ Not set',
+      channelName: process.env.CHANNEL_NAME || 'Not set'
+    },
+    server: {
+      host: req.headers.host,
+      protocol: req.protocol,
+      originalUrl: req.originalUrl
+    }
   });
 });
 
