@@ -286,19 +286,154 @@ app.get('*', (req, res) => {
   res.status(404).send('Not found');
 });
 
+// Verify token endpoint
+app.post('/api/verify-token', express.json(), async (req, res) => {
+  try {
+    // Get the auth token from the Authorization header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('No bearer token provided in Authorization header');
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    // Extract the token
+    const token = authHeader.split(' ')[1];
+    if (!token) {
+      console.log('Empty token provided');
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    console.log('Verifying token with Twitch API');
+    
+    // Verify the token with Twitch API
+    try {
+      const userResponse = await axios.get('https://api.twitch.tv/helix/users', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Client-Id': process.env.TWITCH_CLIENT_ID
+        }
+      });
+      
+      if (!userResponse.data.data || userResponse.data.data.length === 0) {
+        console.log('No user data found with provided token');
+        return res.status(401).json({ error: 'Invalid token' });
+      }
+      
+      const twitchUser = userResponse.data.data[0];
+      console.log('Token verified for user:', twitchUser.display_name);
+      
+      // Check if this user is a moderator of the target channel
+      const targetChannel = process.env.CHANNEL_NAME.toLowerCase();
+      let isChannelModerator = false;
+      let isChannelOwner = false;
+      
+      // If the user is the channel owner, they're automatically an admin
+      if (twitchUser.login.toLowerCase() === targetChannel) {
+        console.log('User is the channel owner - automatically granted admin access');
+        isChannelModerator = true;
+        isChannelOwner = true;
+      } else {
+        // Get the broadcaster ID for the target channel
+        const broadcasterResponse = await axios.get(`https://api.twitch.tv/helix/users?login=${targetChannel}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Client-Id': process.env.TWITCH_CLIENT_ID
+          }
+        });
+        
+        if (broadcasterResponse.data.data && broadcasterResponse.data.data.length > 0) {
+          const broadcasterId = broadcasterResponse.data.data[0].id;
+          
+          // Check if the user is a moderator for this channel
+          const modResponse = await axios.get(`https://api.twitch.tv/helix/moderation/moderators?broadcaster_id=${broadcasterId}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Client-Id': process.env.TWITCH_CLIENT_ID
+            }
+          });
+          
+          if (modResponse.data.data) {
+            isChannelModerator = modResponse.data.data.some(mod => mod.user_id === twitchUser.id);
+          }
+        }
+      }
+      
+      console.log(`User moderation status for ${targetChannel}: ${isChannelModerator ? 'MODERATOR' : 'NOT MODERATOR'}`);
+      
+      // Return user data with moderation status
+      return res.json({
+        id: twitchUser.id,
+        displayName: twitchUser.display_name,
+        login: twitchUser.login,
+        profileImage: twitchUser.profile_image_url,
+        moderatedChannels: isChannelModerator ? [targetChannel] : [],
+        isAdmin: isChannelOwner,
+        isChannelModerator
+      });
+      
+    } catch (error) {
+      console.error('Error verifying token with Twitch:', error.message);
+      if (error.response) {
+        console.error('Twitch API Error:', error.response.status, error.response.data);
+      }
+      return res.status(401).json({ error: 'Failed to verify token with Twitch' });
+    }
+  } catch (error) {
+    console.error('Token verification error:', error);
+    return res.status(500).json({ error: 'Server error verifying token' });
+  }
+});
+
+// Middleware to verify Twitch auth token
+const verifyTwitchToken = async (req, res, next) => {
+  try {
+    // Get the auth token from the Authorization header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    // Extract the token
+    const token = authHeader.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    // Verify the token with Twitch API
+    try {
+      const userResponse = await axios.get('https://api.twitch.tv/helix/users', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Client-Id': process.env.TWITCH_CLIENT_ID
+        }
+      });
+      
+      if (!userResponse.data.data || userResponse.data.data.length === 0) {
+        return res.status(401).json({ error: 'Invalid token' });
+      }
+      
+      const twitchUser = userResponse.data.data[0];
+      
+      // Store the user data in the request for use in route handlers
+      req.twitchUser = twitchUser;
+      req.twitchToken = token;
+      
+      next();
+    } catch (error) {
+      console.error('Error verifying token with Twitch:', error.message);
+      return res.status(401).json({ error: 'Failed to verify token with Twitch' });
+    }
+  } catch (error) {
+    console.error('Token verification middleware error:', error);
+    return res.status(500).json({ error: 'Server error verifying token' });
+  }
+};
+
 // Commands API endpoints (for GitHub Pages frontend)
 // Get commands for a channel
-app.get('/api/commands/:channel', (req, res) => {
+app.get('/api/commands/:channel', verifyTwitchToken, (req, res) => {
   console.log('API - Get commands for channel:', req.params.channel);
-  
-  // Check for user authentication via query parameter
-  const userId = req.query.userId;
-  if (!userId) {
-    console.log('No userId provided in query params');
-    return res.status(401).json({ error: 'Authentication required' });
-  }
-  
-  console.log('Request authenticated via userId:', userId);
+  console.log('Authenticated user:', req.twitchUser.display_name);
   
   // For a production app, you would retrieve this from your database
   // But for our simplified flow, we'll return dummy commands
@@ -333,17 +468,9 @@ app.get('/api/commands/:channel', (req, res) => {
 });
 
 // Create a new command
-app.post('/api/commands/:channel', express.json(), (req, res) => {
+app.post('/api/commands/:channel', verifyTwitchToken, express.json(), (req, res) => {
   console.log('API - Create command for channel:', req.params.channel);
-  
-  // Check for user authentication via query parameter
-  const userId = req.query.userId;
-  if (!userId) {
-    console.log('No userId provided in query params');
-    return res.status(401).json({ error: 'Authentication required' });
-  }
-  
-  console.log('Request authenticated via userId:', userId);
+  console.log('Authenticated user:', req.twitchUser.display_name);
   console.log('Command data:', req.body);
   
   // In a real app, you would save this to the database
@@ -358,17 +485,9 @@ app.post('/api/commands/:channel', express.json(), (req, res) => {
 });
 
 // Update a command
-app.put('/api/commands/:channel/:commandId', express.json(), (req, res) => {
+app.put('/api/commands/:channel/:commandId', verifyTwitchToken, express.json(), (req, res) => {
   console.log('API - Update command:', req.params.commandId, 'for channel:', req.params.channel);
-  
-  // Check for user authentication via query parameter
-  const userId = req.query.userId;
-  if (!userId) {
-    console.log('No userId provided in query params');
-    return res.status(401).json({ error: 'Authentication required' });
-  }
-  
-  console.log('Request authenticated via userId:', userId);
+  console.log('Authenticated user:', req.twitchUser.display_name);
   console.log('Updated data:', req.body);
   
   // In a real app, you would update this in the database
@@ -383,17 +502,9 @@ app.put('/api/commands/:channel/:commandId', express.json(), (req, res) => {
 });
 
 // Delete a command
-app.delete('/api/commands/:channel/:commandId', (req, res) => {
+app.delete('/api/commands/:channel/:commandId', verifyTwitchToken, (req, res) => {
   console.log('API - Delete command:', req.params.commandId, 'for channel:', req.params.channel);
-  
-  // Check for user authentication via query parameter
-  const userId = req.query.userId;
-  if (!userId) {
-    console.log('No userId provided in query params');
-    return res.status(401).json({ error: 'Authentication required' });
-  }
-  
-  console.log('Request authenticated via userId:', userId);
+  console.log('Authenticated user:', req.twitchUser.display_name);
   
   // In a real app, you would delete this from the database
   // For now, just return success

@@ -35,15 +35,17 @@ async function init() {
     const params = new URLSearchParams(window.location.search);
     const loggedIn = params.get('loggedIn');
     const userId = params.get('userId');
+    const authToken = params.get('authToken');
     
-    console.log('URL Params:', { loggedIn, userId });
+    console.log('URL Params:', { loggedIn, userId, hasAuthToken: !!authToken });
     
-    // If URL contains login params, store them in localStorage and clean up URL
-    if (loggedIn === 'true' && userId) {
-      console.log('User logged in via URL params, storing in localStorage');
+    // If URL contains login params with auth token, store them in localStorage and clean up URL
+    if (loggedIn === 'true' && userId && authToken) {
+      console.log('User logged in via URL params with auth token, storing in localStorage');
       localStorage.setItem('twitchBotAuth', JSON.stringify({
         loggedIn: true,
         userId: userId,
+        authToken: authToken,
         timestamp: Date.now()
       }));
       
@@ -55,29 +57,43 @@ async function init() {
     const savedAuth = localStorage.getItem('twitchBotAuth');
     if (savedAuth) {
       const authData = JSON.parse(savedAuth);
-      console.log('Found saved auth in localStorage:', authData);
+      console.log('Found saved auth in localStorage:', { 
+        userId: authData.userId, 
+        hasAuthToken: !!authData.authToken,
+        timestamp: new Date(authData.timestamp).toLocaleString()
+      });
       
-      // Check if saved auth is fresh (less than 24 hours old)
-      const isAuthFresh = Date.now() - authData.timestamp < 24 * 60 * 60 * 1000;
-      if (authData.loggedIn && authData.userId && isAuthFresh) {
-        console.log('Using saved authentication');
+      // Check if saved auth is fresh (less than 1 hour old - Twitch tokens expire) and has auth token
+      const isAuthFresh = Date.now() - authData.timestamp < 60 * 60 * 1000;
+      if (authData.loggedIn && authData.userId && authData.authToken && isAuthFresh) {
+        console.log('Using saved authentication with token');
         try {
-          const response = await fetch(`${API_BASE_URL}/api/user/${authData.userId}`, {
-            credentials: 'include'
+          // Verify the token is still valid by fetching user data
+          const response = await fetch(`${API_BASE_URL}/api/verify-token`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authData.authToken}`
+            }
           });
           
           if (response.ok) {
-            currentUser = await response.json();
-            console.log('User data loaded from saved auth:', currentUser);
+            const userData = await response.json();
+            currentUser = userData;
+            console.log('User verified with valid token:', currentUser.displayName);
             showDashboard();
             return;
           } else {
-            console.error('Failed to load user with saved auth, clearing localStorage');
+            console.error('Token verification failed, status:', response.status);
             localStorage.removeItem('twitchBotAuth');
+            showHome();
+            return;
           }
         } catch (error) {
-          console.error('Error fetching user data with saved auth:', error);
+          console.error('Error verifying token:', error);
           localStorage.removeItem('twitchBotAuth');
+          showHome();
+          return;
         }
       } else {
         console.log('Saved auth is expired or invalid, clearing localStorage');
@@ -85,29 +101,13 @@ async function init() {
       }
     }
     
-    // If we get here, try the standard auth check
-    const response = await fetch(`${API_BASE_URL}/auth/status`, {
-      credentials: 'include'
-    });
+    // If we get here, we're not authenticated
+    console.log('No valid authentication found, showing login screen');
+    showHome();
     
-    const data = await response.json();
-    console.log('Auth status response:', data);
-    
-    if (data.isAuthenticated) {
-      currentUser = data.user;
-      // Save this auth state to localStorage too
-      localStorage.setItem('twitchBotAuth', JSON.stringify({
-        loggedIn: true,
-        userId: currentUser.id,
-        timestamp: Date.now()
-      }));
-      showDashboard();
-    } else {
-      showHome();
-    }
   } catch (error) {
     console.error('Error initializing app:', error);
-    showError();
+    showError('Failed to initialize the application. Please try again later.');
   }
 }
 
@@ -205,19 +205,45 @@ async function loadCommands(channel) {
     
     console.log(`Loading commands for channel: ${channel}`);
     
-    // Get the auth data to pass as query parameter
+    // Get auth token from localStorage
     const savedAuth = localStorage.getItem('twitchBotAuth');
     if (!savedAuth) {
       console.error('No auth data found in localStorage');
       commandsTableBody.innerHTML = '<tr><td colspan="6" class="px-4 py-2 text-center text-red-400">Authentication required. Please log in again.</td></tr>';
+      
+      // Show login button
+      const loginRow = document.createElement('tr');
+      loginRow.innerHTML = `<td colspan="6" class="px-4 py-2 text-center">
+        <a href="${API_BASE_URL}/auth/twitch" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded">
+          Login with Twitch
+        </a>
+      </td>`;
+      commandsTableBody.appendChild(loginRow);
       return;
     }
     
     const authData = JSON.parse(savedAuth);
+    if (!authData.authToken) {
+      console.error('No auth token found in saved auth data');
+      localStorage.removeItem('twitchBotAuth');
+      commandsTableBody.innerHTML = '<tr><td colspan="6" class="px-4 py-2 text-center text-red-400">Invalid authentication. Please log in again.</td></tr>';
+      
+      // Show login button
+      const loginRow = document.createElement('tr');
+      loginRow.innerHTML = `<td colspan="6" class="px-4 py-2 text-center">
+        <a href="${API_BASE_URL}/auth/twitch" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded">
+          Login with Twitch
+        </a>
+      </td>`;
+      commandsTableBody.appendChild(loginRow);
+      return;
+    }
     
-    // Add userId as a query parameter for authentication
-    const response = await fetch(`${API_BASE_URL}/api/commands/${channel}?userId=${authData.userId}`, {
-      credentials: 'include'
+    // Use Authorization header with bearer token
+    const response = await fetch(`${API_BASE_URL}/api/commands/${channel}`, {
+      headers: {
+        'Authorization': `Bearer ${authData.authToken}`
+      }
     });
     
     if (response.status === 401) {
@@ -350,7 +376,7 @@ async function saveCommand(event) {
   }
   
   try {
-    // Get auth data for the user ID
+    // Get auth token from localStorage
     const savedAuth = localStorage.getItem('twitchBotAuth');
     if (!savedAuth) {
       alert('Authentication required. Please log in again.');
@@ -358,25 +384,33 @@ async function saveCommand(event) {
     }
     
     const authData = JSON.parse(savedAuth);
-    const authParam = `?userId=${authData.userId}`;
+    if (!authData.authToken) {
+      console.error('No auth token found in saved auth data');
+      localStorage.removeItem('twitchBotAuth');
+      alert('Invalid authentication. Please log in again.');
+      return;
+    }
+    
+    const authHeader = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${authData.authToken}`
+    };
     
     let response;
     
     if (editingCommandId) {
       // Update existing command
-      response = await fetch(`${API_BASE_URL}/api/commands/${currentChannel}/${editingCommandId}${authParam}`, {
+      response = await fetch(`${API_BASE_URL}/api/commands/${currentChannel}/${editingCommandId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(commandData),
-        credentials: 'include'
+        headers: authHeader,
+        body: JSON.stringify(commandData)
       });
     } else {
       // Create new command
-      response = await fetch(`${API_BASE_URL}/api/commands/${currentChannel}${authParam}`, {
+      response = await fetch(`${API_BASE_URL}/api/commands/${currentChannel}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(commandData),
-        credentials: 'include'
+        headers: authHeader,
+        body: JSON.stringify(commandData)
       });
     }
     
@@ -404,7 +438,7 @@ async function deleteCommand(commandId) {
   if (!confirm('Are you sure you want to delete this command?')) return;
   
   try {
-    // Get auth data for the user ID
+    // Get auth token from localStorage
     const savedAuth = localStorage.getItem('twitchBotAuth');
     if (!savedAuth) {
       alert('Authentication required. Please log in again.');
@@ -412,11 +446,18 @@ async function deleteCommand(commandId) {
     }
     
     const authData = JSON.parse(savedAuth);
-    const authParam = `?userId=${authData.userId}`;
+    if (!authData.authToken) {
+      console.error('No auth token found in saved auth data');
+      localStorage.removeItem('twitchBotAuth');
+      alert('Invalid authentication. Please log in again.');
+      return;
+    }
     
-    const response = await fetch(`${API_BASE_URL}/api/commands/${currentChannel}/${commandId}${authParam}`, {
+    const response = await fetch(`${API_BASE_URL}/api/commands/${currentChannel}/${commandId}`, {
       method: 'DELETE',
-      credentials: 'include'
+      headers: {
+        'Authorization': `Bearer ${authData.authToken}`
+      }
     });
     
     if (response.status === 401) {

@@ -28,10 +28,16 @@ router.get('/twitch/callback',
     console.log('Authentication successful via simplified flow');
     console.log('User:', req.user ? `${req.user.displayName} (${req.user.id})` : 'No user object');
     
+    // Generate authentication token (in a real app, use a proper JWT or secure token)
+    // Here we're using the access token from Twitch directly
+    const authToken = req.user.accessToken;
+    
+    console.log('Generated auth token for user');
+    
     // Handle successful authentication
     if (process.env.NODE_ENV === 'production') {
-      // Send to GitHub Pages with query parameters containing necessary info
-      const redirectURL = `https://emotefroggy.github.io/Retrora-Bot/dashboard.html?loggedIn=true&userId=${req.user.id}`;
+      // Send to GitHub Pages with auth token
+      const redirectURL = `https://emotefroggy.github.io/Retrora-Bot/dashboard.html?loggedIn=true&userId=${req.user.id}&authToken=${encodeURIComponent(authToken)}`;
       console.log('Redirecting to:', redirectURL);
       return res.redirect(redirectURL);
     } else {
